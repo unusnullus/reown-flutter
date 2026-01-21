@@ -1,7 +1,10 @@
 import 'dart:async';
 
+import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
+
 import 'package:reown_walletkit_wallet/dependencies/bottom_sheet/bottom_sheet_listener.dart';
 import 'package:reown_walletkit_wallet/dependencies/bottom_sheet/bottom_sheet_service.dart';
 import 'package:reown_walletkit_wallet/dependencies/bottom_sheet/i_bottom_sheet_service.dart';
@@ -11,13 +14,12 @@ import 'package:reown_walletkit_wallet/dependencies/key_service/i_key_service.da
 import 'package:reown_walletkit_wallet/dependencies/key_service/key_service.dart';
 import 'package:reown_walletkit_wallet/dependencies/walletkit_service.dart';
 import 'package:reown_walletkit_wallet/models/page_data.dart';
+import 'package:reown_walletkit_wallet/pages/balances_page.dart';
 import 'package:reown_walletkit_wallet/pages/apps_page.dart';
 import 'package:reown_walletkit_wallet/pages/settings_page.dart';
 import 'package:reown_walletkit_wallet/utils/constants.dart';
-import 'package:flutter/material.dart';
 import 'package:reown_walletkit_wallet/utils/dart_defines.dart';
 import 'package:reown_walletkit_wallet/utils/string_constants.dart';
-import 'package:sentry_flutter/sentry_flutter.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -73,8 +75,9 @@ class MyApp extends StatefulWidget {
   State<MyApp> createState() => _MyAppState();
 }
 
-class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
-  bool _isDarkMode = false;
+class _MyAppState extends State<MyApp> {
+  // WidgetsBindingObserver
+  final bool _isDarkMode = false;
 
   @override
   void initState() {
@@ -86,14 +89,14 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           builder: (context) => AlertDialog(content: Text(message)),
         ),
       );
-      WidgetsBinding.instance.addObserver(this);
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        setState(() {
-          final platformDispatcher = View.of(context).platformDispatcher;
-          final platformBrightness = platformDispatcher.platformBrightness;
-          _isDarkMode = platformBrightness == Brightness.dark;
-        });
-      });
+      // WidgetsBinding.instance.addObserver(this);
+      // WidgetsBinding.instance.addPostFrameCallback((_) {
+      //   setState(() {
+      //     final platformDispatcher = View.of(context).platformDispatcher;
+      //     final platformBrightness = platformDispatcher.platformBrightness;
+      //     _isDarkMode = platformBrightness == Brightness.dark;
+      //   });
+      // });
     } catch (e, s) {
       Sentry.captureException(e, stackTrace: s);
     }
@@ -101,21 +104,21 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
+    // WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
-  @override
-  void didChangePlatformBrightness() {
-    if (mounted) {
-      setState(() {
-        final platformDispatcher = View.of(context).platformDispatcher;
-        final platformBrightness = platformDispatcher.platformBrightness;
-        _isDarkMode = platformBrightness == Brightness.dark;
-      });
-    }
-    super.didChangePlatformBrightness();
-  }
+  // @override
+  // void didChangePlatformBrightness() {
+  //   if (mounted) {
+  //     setState(() {
+  //       final platformDispatcher = View.of(context).platformDispatcher;
+  //       final platformBrightness = platformDispatcher.platformBrightness;
+  //       _isDarkMode = platformBrightness == Brightness.dark;
+  //     });
+  //   }
+  //   super.didChangePlatformBrightness();
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -128,10 +131,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       theme: ThemeData(
         colorScheme: _isDarkMode
             ? ColorScheme.dark(
-                primary: Color(0xFF667DFF),
+                primary: StyleConstants.accentPrimary,
               )
             : ColorScheme.light(
-                primary: Color(0xFF667DFF),
+                primary: StyleConstants.accentPrimary,
               ),
       ),
       home: MyHomePage(
@@ -189,7 +192,6 @@ class _MyHomePageState extends State<MyHomePage> {
 
       _setPages();
 
-      // TODO _walletKit.core.echo.register(firebaseAccessToken);
       DeepLinkHandler.checkInitialLink();
     } catch (e, s) {
       debugPrint('[$runtimeType] ❌ crash during initialize, $e, $s');
@@ -204,7 +206,12 @@ class _MyHomePageState extends State<MyHomePage> {
   void _setPages() => setState(() {
         _pageDatas = [
           PageData(
-            page: AppsPage(isDarkMode: widget.isDarkMode),
+            page: BalancesPage(),
+            title: 'Balances',
+            icon: Icons.account_balance_wallet_outlined,
+          ),
+          PageData(
+            page: AppsPage(),
             title: StringConstants.connectPageTitle,
             icon: Icons.swap_vert_circle_outlined,
           ),
@@ -228,10 +235,10 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   Widget build(BuildContext context) {
     if (_pageDatas.isEmpty) {
-      return const Material(
+      return Material(
         child: Center(
           child: CircularProgressIndicator(
-            color: StyleConstants.primaryColor,
+            color: StyleConstants.accentPrimary,
           ),
         ),
       );
@@ -259,8 +266,8 @@ class _MyHomePageState extends State<MyHomePage> {
                 radius: 6.0,
                 backgroundColor: walletKit.core.relayClient.isConnected &&
                         walletKit.core.connectivity.isOnline.value
-                    ? Colors.green
-                    : Colors.red,
+                    ? StyleConstants.textSuccess
+                    : StyleConstants.textError,
               );
             },
           ),
@@ -307,8 +314,8 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget _buildBottomNavBar() {
     return BottomNavigationBar(
       currentIndex: _selectedIndex,
-      unselectedItemColor: Colors.grey,
-      selectedItemColor: Color(0xFF667DFF),
+      unselectedItemColor: StyleConstants.textSecondary,
+      selectedItemColor: StyleConstants.accentPrimary,
       showUnselectedLabels: true,
       type: BottomNavigationBarType.fixed,
       // called when one tab is selected

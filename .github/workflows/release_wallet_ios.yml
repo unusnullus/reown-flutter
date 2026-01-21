@@ -43,6 +43,8 @@ jobs:
         working-directory: packages/reown_walletkit/example
         env:
           PROJECT_ID: ${{ secrets.WALLET_PROJECT_ID }}
+          WALLET_SENTRY_DSN: ${{ secrets.WALLET_SENTRY_DSN_PROD }}
+          WCP_API_KEY: ${{ secrets.WCP_API_KEY }}
         run: |
           PUBSPEC_FILE=../pubspec.yaml
           FILE_VALUE=$(echo | grep "^version: " $PUBSPEC_FILE)
@@ -50,7 +52,7 @@ jobs:
           FULL_VERSION=${PARTS[1]}
           VERSION_NUMBER=(${FULL_VERSION//-/ })
 
-          flutter build ios --flavor production --build-name 3.0.0 --dart-define="PROJECT_ID=$PROJECT_ID" --config-only --release
+          flutter build ios --flavor production --build-name 3.0.0 --dart-define="PROJECT_ID=$PROJECT_ID" --dart-define="WALLET_SENTRY_DSN=$WALLET_SENTRY_DSN" --dart-define="WCP_API_KEY=$WCP_API_KEY" --config-only --release
         
       - name: Set Xcode Version
         run: sudo xcode-select -s /Applications/Xcode_26.1.app

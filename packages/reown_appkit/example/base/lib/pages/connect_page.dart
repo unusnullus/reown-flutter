@@ -81,9 +81,6 @@ class ConnectPageState extends State<ConnectPage> {
             child: Stack(
               alignment: Alignment.center,
               children: [
-                // Center(
-                //   child: Image.asset('assets/appkit-logo.png', width: 200.0),
-                // ),
                 Container(
                   color: isDarkMode
                       ? Colors.black.withValues(alpha: 0.8)
@@ -236,6 +233,20 @@ class ConnectPageState extends State<ConnectPage> {
   }
 
   void _onModalConnect(ModalConnect? event) async {
+    final session = event!.session;
+    if (session.connectedWalletName == 'Metamask') {
+      final approvedEvmChains = session.getApprovedChains(namespace: 'eip155');
+      if (approvedEvmChains != null) {
+        final chainId = approvedEvmChains.first;
+        final namespace = NamespaceUtils.getNamespaceFromChain(chainId);
+        final chainInfo = ReownAppKitModalNetworks.getNetworkInfo(
+          namespace,
+          chainId,
+        );
+        await widget.appKitModal.selectChain(chainInfo);
+      }
+    }
+
     setState(() {});
   }
 

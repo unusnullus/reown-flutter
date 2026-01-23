@@ -5,13 +5,30 @@ import YttriumWrapper
 class WalletConnectPayClient {
     private static var walletConnectPayClient: WalletConnectPayJson?
     
+    private static func handlePayError(_ error: Error, result: @escaping FlutterResult) {
+        let mirror = Mirror(reflecting: error)
+        var errorCode = "PayError"
+        var message = error.localizedDescription
+        
+        if let child = mirror.children.first {
+            if let label = child.label {
+                errorCode = label
+            }
+            if let msg = child.value as? String {
+                message = msg
+            }
+        }
+        print("🍎 handlePayError, errorCode: \(errorCode), message: \(message)")
+        result(FlutterError(code: errorCode, message: message, details: nil))
+    }
+    
     static func initialize(params: Any?, result: @escaping FlutterResult) {
         guard let sdkConfig = params as? String else {
             result(FlutterError(code: "PayError", message: "Invalid init parameters: \(String(describing: params))", details: nil))
             return
         }
         
-        print("🤖 WalletConnectPayClient.initialize sdkConfig: \(sdkConfig)")
+        print("🍎 WalletConnectPayClient.initialize sdkConfig: \(sdkConfig)")
         
         do {
             walletConnectPayClient = try WalletConnectPayJson(sdkConfig: sdkConfig)
@@ -33,7 +50,7 @@ class WalletConnectPayClient {
             return
         }
         
-        print("🤖 WalletConnectPayClient.getPaymentOptions requestJson: \(requestJson)")
+        print("🍎 WalletConnectPayClient.getPaymentOptions requestJson: \(requestJson)")
         
         guard let client = walletConnectPayClient else {
             result(FlutterError(code: "WalletConnectPayClient", message: "Client not initialized. Call initialize first.", details: nil))
@@ -66,8 +83,7 @@ class WalletConnectPayClient {
                     result(FlutterError(code: "PaymentNotReady", message: message, details: nil))
                 }
             } catch {
-                print("🤖 WalletConnectPayClient.getPaymentOptions ❌: \(error.localizedDescription)")
-                result(FlutterError(code: "PayError", message: error.localizedDescription, details: nil))
+                handlePayError(error, result: result)
             }
         }
     }
@@ -78,7 +94,7 @@ class WalletConnectPayClient {
             return
         }
         
-        print("🤖 WalletConnectPayClient.getRequiredPaymentActions requestJson: \(requestJson)")
+        print("🍎 WalletConnectPayClient.getRequiredPaymentActions requestJson: \(requestJson)")
         
         guard let client = walletConnectPayClient else {
             result(FlutterError(code: "WalletConnectPayClient", message: "Client not initialized. Call initialize first.", details: nil))
@@ -105,8 +121,7 @@ class WalletConnectPayClient {
                     result(FlutterError(code: "PaymentNotFound", message: message, details: nil))
                 }
             } catch {
-                print("🤖 WalletConnectPayClient.getRequiredPaymentActions ❌: \(error.localizedDescription)")
-                result(FlutterError(code: "PayError", message: error.localizedDescription, details: nil))
+                handlePayError(error, result: result)
             }
         }
     }
@@ -117,7 +132,7 @@ class WalletConnectPayClient {
             return
         }
         
-        print("🤖 WalletConnectPayClient.confirmPayment requestJson: \(requestJson)")
+        print("🍎 WalletConnectPayClient.confirmPayment requestJson: \(requestJson)")
         
         guard let client = walletConnectPayClient else {
             result(FlutterError(code: "WalletConnectPayClient", message: "Client not initialized. Call initialize first.", details: nil))
@@ -148,8 +163,7 @@ class WalletConnectPayClient {
                     result(FlutterError(code: "UnsupportedMethod", message: message, details: nil))
                 }
             } catch {
-                print("🤖 WalletConnectPayClient.confirmPayment ❌: \(error.localizedDescription)")
-                result(FlutterError(code: "PayError", message: error.localizedDescription, details: nil))
+                handlePayError(error, result: result)
             }
         }
     }

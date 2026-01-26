@@ -20,6 +20,7 @@ class TronService {
   Map<String, dynamic Function(String, dynamic)> get tronRequestHandlers => {
         'tron_signMessage': tronSignMessage,
         'tron_signTransaction': tronSignTransaction,
+        'tron_sendTransaction': tronSendTransaction,
       };
 
   TronService({required this.chainSupported}) {
@@ -33,7 +34,7 @@ class TronService {
       );
     }
 
-    _walletKit.onSessionRequest.subscribe(_onSessionRequest);
+    // _walletKit.onSessionRequest.subscribe(_onSessionRequest);
   }
 
   Future<void> tronSignMessage(String topic, dynamic parameters) async {
@@ -56,8 +57,11 @@ class TronService {
       )) {
         // Convert signature to hex string (r, s, v) → 65 bytes
         final signatureHex = await signMessage(message);
-
-        response = response.copyWith(result: {'signature': signatureHex});
+        response = response.copyWith(
+          result: {
+            'signature': signatureHex,
+          },
+        );
       } else {
         final error = Errors.getSdkError(Errors.USER_REJECTED);
         response = response.copyWith(
@@ -99,12 +103,21 @@ class TronService {
 
     final params = parameters as Map<String, dynamic>;
     final address = params['address'] as String;
-    final transactionJson =
-        (parameters['transaction'] as Map<String, dynamic>?)?['transaction'] ??
-            parameters['transaction'];
+    final txJson = extractTransactionFromParams(parameters);
+    if (txJson == null) {
+      final error = Errors.getSdkError(Errors.MALFORMED_REQUEST_PARAMS);
+      response = response.copyWith(
+        error: JsonRpcError(
+          code: error.code,
+          message: 'Missing transaction parameter',
+        ),
+      );
+      _handleResponseForTopic(topic, response);
+      return;
+    }
 
     const encoder = JsonEncoder.withIndent('  ');
-    final message = encoder.convert(transactionJson);
+    final message = encoder.convert(txJson);
     if (await MethodsUtils.requestApproval(
       message,
       method: pRequest.method,
@@ -114,25 +127,92 @@ class TronService {
       verifyContext: pRequest.verifyContext,
     )) {
       try {
-        final keys = GetIt.I<IKeyService>().getKeysForChain(
-          chainSupported.chainId,
-        );
-        final privateKeyHex = keys[0].privateKey;
-        final privateKey = on_chain.TronPrivateKey(privateKeyHex);
-
-        final tronTx = on_chain.Transaction.fromJson(transactionJson);
-        final txBytes = tronTx.rawData.toBuffer();
-
-        final signature = privateKey.sign(txBytes);
-        final hexSignature = b_utils.BytesUtils.toHexString(
-          signature,
-          prefix: '0x',
-        );
-
-        transactionJson['signature'] = [hexSignature];
+        final hexSignature = await signTransaction(txJson);
+        txJson['signature'] = [hexSignature];
 
         // Return signed tx
-        response = response.copyWith(result: transactionJson);
+        response = response.copyWith(result: txJson);
+      } catch (e) {
+        debugPrint('[SampleWallet] tronSignTransaction error $e');
+        final error = Errors.getSdkError(Errors.MALFORMED_REQUEST_PARAMS);
+        response = response.copyWith(
+          error: JsonRpcError(code: error.code, message: error.message),
+        );
+      }
+    } else {
+      final error = Errors.getSdkError(Errors.USER_REJECTED);
+      response = response.copyWith(
+        error: JsonRpcError(code: error.code, message: error.message),
+      );
+    }
+
+    _handleResponseForTopic(topic, response);
+  }
+
+  Map<String, dynamic>? extractTransactionFromParams(dynamic parameters) {
+    final params = parameters as Map<String, dynamic>;
+    final transaction = params['transaction'] as Map<String, dynamic>?;
+    return transaction?['transaction'] ?? transaction;
+  }
+
+  Future<String> signTransaction(Map<String, dynamic> transaction) async {
+    // code
+    try {
+      final keys = GetIt.I<IKeyService>().getKeysForChain(
+        chainSupported.chainId,
+      );
+      final privateKeyHex = keys[0].privateKey;
+      final privateKey = on_chain.TronPrivateKey(privateKeyHex);
+
+      final tronTx = on_chain.Transaction.fromJson(transaction);
+      final txBytes = tronTx.rawData.toBuffer();
+
+      final signature = privateKey.sign(txBytes);
+      return b_utils.BytesUtils.toHexString(
+        signature,
+        prefix: '0x',
+      );
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> tronSendTransaction(String topic, dynamic parameters) async {
+    debugPrint('[SampleWallet] tronSendTransaction: ${jsonEncode(parameters)}');
+    final pRequest = _walletKit.pendingRequests.getAll().last;
+    var response = JsonRpcResponse(id: pRequest.id, jsonrpc: '2.0');
+
+    final params = parameters as Map<String, dynamic>;
+    final address = params['address'] as String;
+    final txJson = extractTransactionFromParams(parameters);
+    if (txJson == null) {
+      final error = Errors.getSdkError(Errors.MALFORMED_REQUEST_PARAMS);
+      response = response.copyWith(
+        error: JsonRpcError(
+          code: error.code,
+          message: 'Missing transaction parameter',
+        ),
+      );
+      _handleResponseForTopic(topic, response);
+      return;
+    }
+
+    const encoder = JsonEncoder.withIndent('  ');
+    final message = encoder.convert(txJson);
+    if (await MethodsUtils.requestApproval(
+      message,
+      method: pRequest.method,
+      chainId: pRequest.chainId,
+      address: address,
+      transportType: pRequest.transportType.name,
+      verifyContext: pRequest.verifyContext,
+    )) {
+      try {
+        final hexSignature = await signTransaction(txJson);
+        txJson['signature'] = [hexSignature];
+
+        // TODO send tron transaction
+        
       } catch (e) {
         debugPrint('[SampleWallet] tronSignTransaction error $e');
         final error = Errors.getSdkError(Errors.MALFORMED_REQUEST_PARAMS);
@@ -255,13 +335,13 @@ class TronService {
     }
   }
 
-  void _onSessionRequest(SessionRequestEvent? args) async {
-    if (args != null && args.chainId == chainSupported.chainId) {
-      debugPrint('[SampleWallet] _onSessionRequest ${args.toString()}');
-      final handler = tronRequestHandlers[args.method];
-      if (handler != null) {
-        await handler(args.topic, args.params);
-      }
-    }
-  }
+  // void _onSessionRequest(SessionRequestEvent? args) async {
+  //   if (args != null && args.chainId == chainSupported.chainId) {
+  //     debugPrint('[SampleWallet] _onSessionRequest ${args.toString()}');
+  //     final handler = tronRequestHandlers[args.method];
+  //     if (handler != null) {
+  //       await handler(args.topic, args.params);
+  //     }
+  //   }
+  // }
 }

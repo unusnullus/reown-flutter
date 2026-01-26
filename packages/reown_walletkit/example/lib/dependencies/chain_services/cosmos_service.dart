@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
+import 'package:http/http.dart' as http;
 import 'package:reown_walletkit/reown_walletkit.dart';
 
 import 'package:reown_walletkit_wallet/dependencies/i_walletkit_service.dart';
@@ -147,5 +148,212 @@ class CosmosService {
         error.message,
       );
     }
+  }
+
+  /// Returns the LCD API endpoint for the chain
+  String get _lcdEndpoint {
+    // Common Cosmos LCD endpoints
+    if (chainSupported.chainId.contains('cosmoshub')) {
+      return chainSupported.isTestnet
+          ? 'https://rest.sentry-01.theta-testnet.polypore.xyz'
+          : 'https://lcd-cosmoshub.keplr.app';
+    }
+    // Default to WalletConnect RPC
+    return 'https://rpc.walletconnect.org/v1';
+  }
+
+  /// Fetches account balances with token metadata
+  Future<List<Map<String, dynamic>>> getTokens({
+    required String address,
+  }) async {
+    try {
+      final balances = await _getAccountBalances(address);
+      if (balances.isEmpty) {
+        return [];
+      }
+
+      // Fetch token metadata from chain registry
+      final metadata = await _getTokenMetadata();
+
+      final tokens = <Map<String, dynamic>>[];
+      for (final balance in balances) {
+        final denom = balance['denom'] as String;
+        final amount = balance['amount'] as String;
+        final tokenInfo = metadata[denom] ?? {};
+
+        final decimals = tokenInfo['decimals'] as int? ?? 6;
+        final rawAmount = BigInt.parse(amount);
+        final quantity = rawAmount / BigInt.from(10).pow(decimals);
+
+        // Fetch price for the token
+        final symbol = tokenInfo['symbol'] ?? denom.toUpperCase();
+        final price = await _getTokenPrice(symbol.toString().toLowerCase());
+
+        tokens.add({
+          'name': tokenInfo['name'] ?? denom,
+          'symbol': symbol,
+          'chainId': chainSupported.chainId,
+          'value': (quantity * price).toDouble(),
+          'quantity': {
+            'decimals': decimals,
+            'numeric': '$quantity',
+          },
+          'iconUrl': tokenInfo['iconUrl'],
+          'denom': denom,
+        });
+      }
+
+      debugPrint('[CosmosService] getTokens found ${tokens.length} tokens');
+      return tokens;
+    } catch (e) {
+      debugPrint('[CosmosService] getTokens error: $e');
+      rethrow;
+    }
+  }
+
+  /// Fetches token price from CoinGecko
+  Future<double> _getTokenPrice(String symbol) async {
+    if (chainSupported.isTestnet) {
+      return 0.0;
+    }
+
+    // Map of known Cosmos tokens to their CoinGecko IDs
+    const tokenIdMap = {
+      'atom': 'cosmos',
+      'osmo': 'osmosis',
+      'usdc': 'usd-coin',
+      'usdt': 'tether',
+      'strd': 'stride-staked-atom',
+      'juno': 'juno-network',
+      'scrt': 'secret',
+      'inj': 'injective-protocol',
+      'evmos': 'evmos',
+      'stars': 'stargaze',
+      'kuji': 'kujira',
+      'luna': 'terra-luna-2',
+    };
+
+    final coinGeckoId = tokenIdMap[symbol];
+    if (coinGeckoId == null) {
+      return 0.0;
+    }
+
+    try {
+      final url =
+          'https://api.coingecko.com/api/v3/simple/price?ids=$coinGeckoId&vs_currencies=usd';
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {'accept': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final tokenData = data[coinGeckoId] as Map<String, dynamic>?;
+        final price = tokenData?['usd'] as num?;
+        return price?.toDouble() ?? 0.0;
+      }
+      return 0.0;
+    } catch (e) {
+      debugPrint('[CosmosService] _getTokenPrice error for $symbol: $e');
+      return 0.0;
+    }
+  }
+
+  /// Fetches account balances from Cosmos LCD API
+  Future<List<Map<String, dynamic>>> _getAccountBalances(String address) async {
+    try {
+      final url = '$_lcdEndpoint/cosmos/bank/v1beta1/balances/$address';
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {'accept': 'application/json'},
+      );
+
+      if (response.statusCode != 200) {
+        debugPrint('[CosmosService] LCD API error: ${response.statusCode}');
+        return [];
+      }
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final balances = data['balances'] as List<dynamic>? ?? [];
+
+      return balances.map((b) => b as Map<String, dynamic>).toList();
+    } catch (e) {
+      debugPrint('[CosmosService] _getAccountBalances error: $e');
+      return [];
+    }
+  }
+
+  /// Fetches token metadata from Cosmos Chain Registry
+  Future<Map<String, Map<String, dynamic>>> _getTokenMetadata() async {
+    try {
+      // Use Cosmos Chain Registry for token metadata
+      // Default metadata for common Cosmos tokens
+      final metadata = <String, Map<String, dynamic>>{
+        'uatom': {
+          'name': 'Cosmos Hub',
+          'symbol': 'ATOM',
+          'decimals': 6,
+          'iconUrl':
+              'https://raw.githubusercontent.com/cosmos/chain-registry/master/cosmoshub/images/atom.png',
+        },
+        'uosmo': {
+          'name': 'Osmosis',
+          'symbol': 'OSMO',
+          'decimals': 6,
+          'iconUrl':
+              'https://raw.githubusercontent.com/cosmos/chain-registry/master/osmosis/images/osmo.png',
+        },
+      };
+
+      // Try to fetch from chain registry API
+      final chainName = _getChainName();
+      if (chainName != null) {
+        final url =
+            'https://chains.cosmos.directory/$chainName/assetlist';
+        final response = await http.get(Uri.parse(url));
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body) as Map<String, dynamic>;
+          final assets = data['assets'] as List<dynamic>? ?? [];
+
+          for (final asset in assets) {
+            final assetMap = asset as Map<String, dynamic>;
+            final denoms = assetMap['denom_units'] as List<dynamic>? ?? [];
+            final baseDenom = assetMap['base'] as String?;
+
+            if (baseDenom != null) {
+              final displayDenom = denoms.isNotEmpty
+                  ? denoms.last as Map<String, dynamic>
+                  : null;
+              final images = assetMap['images'] as List<dynamic>?;
+
+              metadata[baseDenom] = {
+                'name': assetMap['name'] ?? baseDenom,
+                'symbol': assetMap['symbol'] ?? baseDenom.toUpperCase(),
+                'decimals': displayDenom?['exponent'] as int? ?? 6,
+                'iconUrl': images?.isNotEmpty == true
+                    ? (images!.first as Map<String, dynamic>)['png'] ??
+                        (images.first as Map<String, dynamic>)['svg']
+                    : null,
+              };
+            }
+          }
+        }
+      }
+
+      return metadata;
+    } catch (e) {
+      debugPrint('[CosmosService] _getTokenMetadata error: $e');
+      return {};
+    }
+  }
+
+  String? _getChainName() {
+    if (chainSupported.chainId.contains('cosmoshub')) {
+      return 'cosmoshub';
+    }
+    // Add more chain mappings as needed
+    return null;
   }
 }

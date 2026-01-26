@@ -288,6 +288,227 @@ class SolanaService {
     }
   }
 
+  /// Fetches SPL token accounts for the given address and returns token metadata
+  /// Includes native SOL balance at the beginning of the list
+  Future<List<Map<String, dynamic>>> getTokens({
+    required String address,
+  }) async {
+    try {
+      final tokens = <Map<String, dynamic>>[];
+
+      // Fetch native SOL balance first
+      try {
+        final solBalance = await getBalance(address: address) as double;
+        if (solBalance > 0) {
+          final solPrice = await _getSolPrice();
+          tokens.add({
+            'name': 'Solana',
+            'symbol': 'SOL',
+            'chainId': chainSupported.chainId,
+            'value': solBalance * solPrice,
+            'quantity': {
+              'decimals': 9,
+              'numeric': '$solBalance',
+            },
+            'iconUrl':
+                'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png',
+          });
+        }
+      } catch (e) {
+        debugPrint('[SolanaService] Failed to fetch SOL balance: $e');
+      }
+
+      // Fetch all SPL token accounts for the address
+      final tokenAccounts = await _getTokenAccountsByOwner(address);
+      if (tokenAccounts.isEmpty) {
+        return tokens;
+      }
+
+      // Extract mint addresses
+      final mintAddresses = tokenAccounts
+          .map((account) => account['mint'] as String)
+          .toSet()
+          .toList();
+
+      // Fetch token metadata from Jupiter API (mainnet only)
+      // Jupiter API doesn't support devnet, so we skip metadata fetch for testnet
+      final tokenMetadata = chainSupported.isTestnet
+          ? <String, Map<String, dynamic>>{}
+          : await _getTokenMetadata(mintAddresses);
+
+      // Combine token accounts with metadata
+      for (final account in tokenAccounts) {
+        final mint = account['mint'] as String;
+        final rawAmount = account['amount'] as String;
+        final metadata = tokenMetadata[mint];
+
+        // For testnet or tokens without Jupiter metadata, use on-chain decimals
+        final decimals =
+            metadata?['decimals'] as int? ?? account['decimals'] as int? ?? 0;
+        final amount = BigInt.parse(rawAmount);
+        final quantity = amount / BigInt.from(10).pow(decimals);
+        final price = metadata?['usdPrice'] as double? ?? 0.0;
+
+        tokens.add({
+          'name': metadata?['name'] ?? 'SPL Token',
+          'symbol': metadata?['symbol'] ?? mint.substring(0, 4),
+          'chainId': chainSupported.chainId,
+          'value': (quantity * price).toDouble(),
+          'quantity': {
+            'decimals': decimals,
+            'numeric': '$quantity',
+          },
+          'iconUrl': metadata?['icon'],
+          'mint': mint,
+        });
+      }
+
+      debugPrint('[SolanaService] getTokens found ${tokens.length} tokens');
+      return tokens;
+    } catch (e) {
+      debugPrint('[SolanaService] getTokens error: $e');
+      rethrow;
+    }
+  }
+
+  /// Fetches SOL price in USD from CoinGecko API
+  Future<double> _getSolPrice() async {
+    if (chainSupported.isTestnet) {
+      return 0.0;
+    }
+
+    try {
+      // Use CoinGecko simple price API (no auth required)
+      final url =
+          'https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd';
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {'accept': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final solanaData = data['solana'] as Map<String, dynamic>?;
+        final price = solanaData?['usd'] as num?;
+        return price?.toDouble() ?? 0.0;
+      }
+      return 0.0;
+    } catch (e) {
+      debugPrint('[SolanaService] _getSolPrice error: $e');
+      return 0.0;
+    }
+  }
+
+  /// Fetches SPL token accounts owned by the address
+  Future<List<Map<String, dynamic>>> _getTokenAccountsByOwner(
+    String address,
+  ) async {
+    final uri = Uri.parse('https://rpc.walletconnect.org/v1');
+    final queryParams = {
+      'projectId': _walletKit.core.projectId,
+      'chainId': chainSupported.chainId,
+    };
+    final response = await http.post(
+      uri.replace(queryParameters: queryParams),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'id': 1,
+        'jsonrpc': '2.0',
+        'method': 'getTokenAccountsByOwner',
+        'params': [
+          address,
+          {'programId': 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'},
+          {'encoding': 'jsonParsed'},
+        ],
+      }),
+    );
+
+    if (response.statusCode == 200 && response.body.isNotEmpty) {
+      try {
+        final result = _parseRpcResultAs<Map<String, dynamic>>(response.body);
+        final value = result['value'] as List<dynamic>? ?? [];
+
+        final tokenAccounts = <Map<String, dynamic>>[];
+        for (final item in value) {
+          final account = item['account'] as Map<String, dynamic>;
+          final data = account['data'] as Map<String, dynamic>;
+          final parsed = data['parsed'] as Map<String, dynamic>;
+          final info = parsed['info'] as Map<String, dynamic>;
+
+          final tokenAmount = info['tokenAmount'] as Map<String, dynamic>;
+          final amount = tokenAmount['amount'] as String;
+
+          // Skip zero balance tokens
+          if (amount == '0') continue;
+
+          tokenAccounts.add({
+            'mint': info['mint'] as String,
+            'amount': amount,
+            'decimals': tokenAmount['decimals'] as int,
+          });
+        }
+
+        debugPrint(
+          '[SolanaService] _getTokenAccountsByOwner found ${tokenAccounts.length} accounts',
+        );
+        return tokenAccounts;
+      } catch (e) {
+        debugPrint('[SolanaService] _getTokenAccountsByOwner error: $e');
+        return [];
+      }
+    }
+    return [];
+  }
+
+  /// Fetches token metadata from Jupiter API for given mint addresses
+  Future<Map<String, Map<String, dynamic>>> _getTokenMetadata(
+    List<String> mintAddresses,
+  ) async {
+    if (mintAddresses.isEmpty) return {};
+
+    try {
+      // Jupiter API allows searching multiple mints with comma separation
+      final query = mintAddresses.join(',');
+      final url = 'https://lite-api.jup.ag/tokens/v2/search?query=$query';
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {'accept': 'application/json'},
+      );
+
+      if (response.statusCode != 200) {
+        debugPrint('[SolanaService] Jupiter API error: ${response.statusCode}');
+        return {};
+      }
+
+      final data = jsonDecode(response.body) as List<dynamic>;
+      final metadata = <String, Map<String, dynamic>>{};
+
+      for (final token in data) {
+        final tokenMap = token as Map<String, dynamic>;
+        final mint = tokenMap['id'] as String?;
+        if (mint != null) {
+          metadata[mint] = {
+            'name': tokenMap['name'] as String?,
+            'symbol': tokenMap['symbol'] as String?,
+            'decimals': tokenMap['decimals'] as int?,
+            'icon': tokenMap['icon'] as String?,
+            'usdPrice': (tokenMap['usdPrice'] as num?)?.toDouble(),
+          };
+        }
+      }
+
+      debugPrint(
+        '[SolanaService] _getTokenMetadata fetched ${metadata.length} tokens',
+      );
+      return metadata;
+    } catch (e) {
+      debugPrint('[SolanaService] _getTokenMetadata error: $e');
+      return {};
+    }
+  }
+
   T _parseRpcResultAs<T>(String body) {
     try {
       final result = Map<String, dynamic>.from({...jsonDecode(body), 'id': 1});

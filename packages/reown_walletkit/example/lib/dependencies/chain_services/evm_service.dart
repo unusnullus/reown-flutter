@@ -624,20 +624,21 @@ class EVMService {
     return signature;
   }
 
-  Future<List<Map<String, dynamic>>> getBalance({
+  Future<List<Map<String, dynamic>>> getBalances({
     required String address,
   }) async {
-    final uri = Uri.parse(
-      'https://rpc.walletconnect.org/v1/account/$address/balance',
-    );
     final queryParams = {
       'projectId': _walletKit.core.projectId,
+      'chainId': chainSupported.chainId,
       'currency': 'usd',
-      // 'chainId': chainSupported.chainId,
     };
     final package = await PackageInfo.fromPlatform();
+    final uri = Uri.parse(
+      'https://rpc.walletconnect.org/v1/account/$address/balance',
+    ).replace(queryParameters: queryParams);
+    print('getBalances $uri');
     final response = await http.get(
-      uri.replace(queryParameters: queryParams),
+      uri,
       headers: {
         'Content-Type': 'application/json',
         'x-sdk-type': 'flutter-sample-wallet',

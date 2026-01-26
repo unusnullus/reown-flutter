@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:convert/convert.dart';
+import 'package:http/http.dart' as http;
 
 import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
@@ -240,6 +241,121 @@ class PolkadotService {
         await handler(args.topic, args.params);
       }
     }
+  }
+
+  /// Returns the Subscan API endpoint for the chain
+  String get _subscanApiEndpoint {
+    if (chainSupported.isTestnet) {
+      return 'https://westend.api.subscan.io';
+    }
+    return 'https://polkadot.api.subscan.io';
+  }
+
+  /// Fetches account tokens with metadata using Subscan API
+  /// Note: Subscan API requires an API key for production use
+  /// Get your API key at https://support.subscan.io/
+  Future<List<Map<String, dynamic>>> getTokens({
+    required String address,
+    String? apiKey,
+  }) async {
+    try {
+      final url = '$_subscanApiEndpoint/api/scan/account/tokens';
+      final headers = {
+        'Content-Type': 'application/json',
+        if (apiKey != null) 'X-API-Key': apiKey,
+      };
+
+      final response = await http.post(
+        Uri.parse(url),
+        headers: headers,
+        body: jsonEncode({'address': address}),
+      );
+
+      if (response.statusCode != 200) {
+        debugPrint('[PolkadotService] Subscan API error: ${response.statusCode}');
+        // Fallback to native balance only
+        return _getNativeBalanceOnly(address);
+      }
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (data['code'] != 0) {
+        debugPrint('[PolkadotService] Subscan API error: ${data['message']}');
+        return _getNativeBalanceOnly(address);
+      }
+
+      final tokenData = data['data'] as Map<String, dynamic>?;
+      if (tokenData == null) {
+        return _getNativeBalanceOnly(address);
+      }
+
+      final tokens = <Map<String, dynamic>>[];
+
+      // Process native token
+      final native = tokenData['native'] as List<dynamic>? ?? [];
+      for (final token in native) {
+        final tokenMap = token as Map<String, dynamic>;
+        final decimals = tokenMap['decimals'] as int? ?? 10;
+        final balance = tokenMap['balance'] as String? ?? '0';
+        final rawAmount = BigInt.parse(balance);
+        final quantity = rawAmount / BigInt.from(10).pow(decimals);
+
+        tokens.add({
+          'name': tokenMap['symbol'] ?? 'Polkadot',
+          'symbol': tokenMap['symbol'] ?? 'DOT',
+          'chainId': chainSupported.chainId,
+          'value': (tokenMap['price'] as num?)?.toDouble() ?? 0.0,
+          'quantity': {
+            'decimals': decimals,
+            'numeric': '$quantity',
+          },
+          'iconUrl': tokenMap['token_image'],
+        });
+      }
+
+      // Process asset tokens
+      final assets = tokenData['assets'] as List<dynamic>? ?? [];
+      for (final token in assets) {
+        final tokenMap = token as Map<String, dynamic>;
+        final decimals = tokenMap['decimals'] as int? ?? 10;
+        final balance = tokenMap['balance'] as String? ?? '0';
+        final rawAmount = BigInt.parse(balance);
+        final quantity = rawAmount / BigInt.from(10).pow(decimals);
+
+        tokens.add({
+          'name': tokenMap['symbol'] ?? 'Unknown',
+          'symbol': tokenMap['symbol'] ?? 'UNKNOWN',
+          'chainId': chainSupported.chainId,
+          'value': (tokenMap['price'] as num?)?.toDouble() ?? 0.0,
+          'quantity': {
+            'decimals': decimals,
+            'numeric': '$quantity',
+          },
+          'iconUrl': tokenMap['token_image'],
+          'assetId': tokenMap['asset_id'],
+        });
+      }
+
+      debugPrint('[PolkadotService] getTokens found ${tokens.length} tokens');
+      return tokens;
+    } catch (e) {
+      debugPrint('[PolkadotService] getTokens error: $e');
+      return _getNativeBalanceOnly(address);
+    }
+  }
+
+  /// Fallback when Subscan API is unavailable
+  /// Returns empty list - Subscan API key is required for token data
+  Future<List<Map<String, dynamic>>> _getNativeBalanceOnly(
+    String address,
+  ) async {
+    // Without Subscan API, we return empty list
+    // To get token data, please provide a Subscan API key
+    // Get your API key at https://support.subscan.io/
+    debugPrint(
+      '[PolkadotService] Subscan API required for token data. '
+      'Get API key at https://support.subscan.io/',
+    );
+    return [];
   }
 }
 

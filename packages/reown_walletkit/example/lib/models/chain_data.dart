@@ -81,7 +81,8 @@ class ChainsDataList {
       chainId: 'eip155:11155111',
       name: 'Eth Sepolia',
       currency: 'ETH',
-      logo: 'https://avatars.githubusercontent.com/u/179229932?s=200&v=4',
+      logo:
+          'https://pbs.twimg.com/profile_images/1878738447067652096/tXQbWfpf_400x400.jpg',
       color: const Color.fromARGB(255, 0, 0, 0),
       isTestnet: true,
       rpc: ['https://rpc.walletconnect.org/v1'],
@@ -91,7 +92,8 @@ class ChainsDataList {
       chainId: 'eip155:84531',
       name: 'Base Sepolia',
       currency: 'ETH',
-      logo: 'https://avatars.githubusercontent.com/u/179229932?s=200&v=4',
+      logo:
+          'https://pbs.twimg.com/profile_images/1878738447067652096/tXQbWfpf_400x400.jpg',
       color: const Color.fromARGB(255, 0, 0, 0),
       isTestnet: true,
       rpc: ['https://sepolia.base.org'],
@@ -101,7 +103,8 @@ class ChainsDataList {
       chainId: 'eip155:80001',
       name: 'Polygon Mumbai',
       currency: 'MATIC',
-      logo: 'https://avatars.githubusercontent.com/u/179229932?s=200&v=4',
+      logo:
+          'https://pbs.twimg.com/profile_images/1878738447067652096/tXQbWfpf_400x400.jpg',
       color: const Color.fromARGB(255, 0, 0, 0),
       isTestnet: true,
       rpc: ['https://matic-mumbai.chainstacklabs.com'],
@@ -157,7 +160,8 @@ class ChainsDataList {
       chainId: 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1',
       name: 'Solana Devnet',
       currency: 'SOL',
-      logo: 'https://avatars.githubusercontent.com/u/179229932?s=200&v=4',
+      logo:
+          'https://pbs.twimg.com/profile_images/1472933274209107976/6u-LQfjG_400x400.jpg',
       color: Color.fromARGB(255, 247, 0, 255),
       rpc: ['https://rpc.walletconnect.org/v1'],
     ),
@@ -166,7 +170,8 @@ class ChainsDataList {
       chainId: 'solana:4uhcVJyU9pJkvQyS88uRDiswHXSCkY3z',
       name: 'Solana Testnet',
       currency: 'SOL',
-      logo: 'https://avatars.githubusercontent.com/u/179229932?s=200&v=4',
+      logo:
+          'https://pbs.twimg.com/profile_images/1472933274209107976/6u-LQfjG_400x400.jpg',
       color: Colors.black,
       isTestnet: true,
       rpc: ['https://rpc.walletconnect.org/v1'],

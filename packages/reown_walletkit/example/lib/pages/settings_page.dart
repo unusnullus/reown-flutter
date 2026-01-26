@@ -9,8 +9,6 @@ import 'package:get_it/get_it.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:reown_walletkit/reown_walletkit.dart';
 import 'package:reown_walletkit_wallet/dependencies/bottom_sheet/i_bottom_sheet_service.dart';
-import 'package:reown_walletkit_wallet/dependencies/chain_services/evm_service.dart';
-import 'package:reown_walletkit_wallet/dependencies/chain_services/tron_service.dart';
 import 'package:reown_walletkit_wallet/dependencies/i_walletkit_service.dart';
 import 'package:reown_walletkit_wallet/dependencies/key_service/chain_key.dart';
 import 'package:reown_walletkit_wallet/dependencies/key_service/i_key_service.dart';
@@ -316,7 +314,7 @@ class _EVMAccountsState extends State<_EVMAccounts> {
     _pageController = PageController();
     _selectedChain = _walletKitService.currentSelectedChain.value!;
     _walletKitService.currentSelectedChain.addListener(_onChainChanged);
-    _updateBalance();
+    // _updateBalance();
   }
 
   Future<void> _onChainChanged() async {
@@ -342,35 +340,35 @@ class _EVMAccountsState extends State<_EVMAccounts> {
         );
       }
       setState(() => _selectedChain = chainMetadata);
-      await _updateBalance();
+      // await _updateBalance();
     } catch (e) {
       debugPrint(e.toString());
     }
   }
 
-  final List<Map<String, dynamic>> _balances = [];
-  Future<void> _updateBalance() async {
-    if (!mounted) return;
-    final chainKeys = _keysService.getKeysForChain('eip155');
-    final chainKey = chainKeys[_currentPage];
-    final evmService = _walletKitService.getChainService<EVMService>(
-      chainId: _selectedChain.chainId,
-    );
-    evmService.getBalance(address: chainKey.address).then((balances) {
-      if (!mounted) return;
-      _balances
-        ..clear()
-        ..addAll(balances);
-      setState(() {});
-      // setState(() => _balance = value);
-    }).onError((a, b) {
-      if (!mounted) return;
-      // setState(() => _balance = 0.0);
-      _balances.clear();
-      setState(() {});
-    });
-    setState(() => {});
-  }
+  // final List<Map<String, dynamic>> _balances = [];
+  // Future<void> _updateBalance() async {
+  //   if (!mounted) return;
+  //   final chainKeys = _keysService.getKeysForChain('eip155');
+  //   final chainKey = chainKeys[_currentPage];
+  //   final evmService = _walletKitService.getChainService<EVMService>(
+  //     chainId: _selectedChain.chainId,
+  //   );
+  //   evmService.getBalances(address: chainKey.address).then((balances) {
+  //     if (!mounted) return;
+  //     _balances
+  //       ..clear()
+  //       ..addAll(balances);
+  //     setState(() {});
+  //     // setState(() => _balance = value);
+  //   }).onError((a, b) {
+  //     if (!mounted) return;
+  //     // setState(() => _balance = 0.0);
+  //     _balances.clear();
+  //     setState(() {});
+  //   });
+  //   setState(() => {});
+  // }
 
   Future<void> _onCreateEVMAddress() async {
     await _keysService.createAddressFromSeed();
@@ -524,7 +522,7 @@ class _EVMAccountsState extends State<_EVMAccounts> {
                       ),
                     );
                   }
-                  _updateBalance();
+                  // _updateBalance();
                 },
               ),
             ),
@@ -621,17 +619,6 @@ class _SolanaAccounts extends StatefulWidget {
 
 class _SolanaAccountsState extends State<_SolanaAccounts> {
   final _keysService = GetIt.I<IKeyService>();
-  ChainMetadata? _selectedChain;
-
-  @override
-  void initState() {
-    super.initState();
-    try {
-      _selectedChain = ChainsDataList.solanaChains.first;
-    } catch (e) {
-      debugPrint(e.toString());
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -665,71 +652,18 @@ class _SolanaAccountsState extends State<_SolanaAccounts> {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.only(
-            left: 12.0,
-            right: 12.0,
-            top: 10.0,
-            bottom: 8.0,
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Spacer(),
-              SizedBox(
-                width: 200.0,
-                child: DropdownButton(
-                  key: Key('solana_chains'),
-                  isExpanded: true,
-                  value: _selectedChain,
-                  items: ChainsDataList.solanaChains.map((ChainMetadata chain) {
-                    return DropdownMenuItem<ChainMetadata>(
-                      value: chain,
-                      child: RichText(
-                        text: TextSpan(
-                          children: [
-                            WidgetSpan(
-                              child: CachedNetworkImage(
-                                imageUrl: chain.logo,
-                                width: 20.0,
-                                height: 20.0,
-                                errorWidget: (context, url, error) =>
-                                    const SizedBox.shrink(),
-                              ),
-                            ),
-                            TextSpan(
-                              text: ' ${chain.name}',
-                              style: TextStyle(
-                                fontSize: 14.0,
-                                color: Theme.of(context).brightness ==
-                                        Brightness.dark
-                                    ? Colors.white
-                                    : Colors.black,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                  onChanged: (ChainMetadata? chain) {
-                    setState(() => _selectedChain = chain!);
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox.square(dimension: 8.0),
-        Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12.0),
           child: Column(
             children: [
-              _DataContainer(
-                title: 'CAIP-10',
-                data: '${_selectedChain!.chainId}:${chainKeys.first.address}',
-              ),
+              ...chainKeys.first.chains.map((chain) {
+                return Padding(
+                  padding: const EdgeInsets.only(top: 12.0),
+                  child: _DataContainer(
+                    title: 'CAIP-10',
+                    data: '$chain:${chainKeys.first.address}',
+                  ),
+                );
+              }),
               const SizedBox(height: 12.0),
               _DataContainer(
                 title: 'Secret key',
@@ -754,45 +688,7 @@ class _ChainKeyView extends StatefulWidget {
 
 class _ChainKeyViewState extends State<_ChainKeyView> {
   final _keysService = GetIt.I<IKeyService>();
-  ChainMetadata? _selectedChain;
-  double _balance = 0.0;
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.chain.contains('tron')) {
-      try {
-        _selectedChain = ChainsDataList.tronChains.first;
-        _updateTronBalance();
-      } catch (e) {
-        debugPrint(e.toString());
-      }
-    }
-  }
-
-  Future<void> _updateTronBalance() async {
-    if (!mounted) return;
-    if (!widget.chain.contains('tron')) return;
-    if (!_selectedChain!.chainId.contains('tron')) return;
-
-    final chainKeys = _keysService.getKeysForChain('tron');
-    final tronService = GetIt.I<IWalletKitService>()
-        .getChainService<TronService>(chainId: _selectedChain!.chainId);
-    final address = chainKeys.first.address;
-    tronService.getBalance(address: address).then((value) {
-      if (!mounted) return;
-      setState(() => _balance = value);
-      debugPrint('_updateTronBalance $value');
-    }).catchError((error) {
-      debugPrint('_updateTronBalance error $error');
-    });
-    tronService.getTokens(address: address).then((tokens) {
-      for (var token in tokens) {
-        final balance = tronService.parsedBalance(token.values.first);
-        debugPrint('${token.keys.first} $balance');
-      }
-    });
-  }
+  // ChainMetadata? _selectedChain;
 
   @override
   Widget build(BuildContext context) {
@@ -806,7 +702,7 @@ class _ChainKeyViewState extends State<_ChainKeyView> {
         const SizedBox(height: 20.0),
         const Divider(height: 1.0, color: Colors.black12),
         Padding(
-          padding: EdgeInsets.all(12.0),
+          padding: EdgeInsets.only(left: 12.0, top: 12.0, right: 12.0),
           child: Row(
             children: [
               CachedNetworkImage(
@@ -830,84 +726,84 @@ class _ChainKeyViewState extends State<_ChainKeyView> {
             ],
           ),
         ),
-        Visibility(
-          visible: chainData.chainId.contains('tron'),
-          child: Padding(
-            padding: const EdgeInsets.only(
-              left: 12.0,
-              right: 12.0,
-              top: 10.0,
-              bottom: 8.0,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Expanded(
-                  child: Text(
-                    '${_balance.toStringAsFixed(4)} ${chainData.currency}',
-                    style: TextStyle(
-                      fontSize: 15.0,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                SizedBox(
-                  width: 200.0,
-                  child: DropdownButton(
-                    key: Key('tron_chains'),
-                    isExpanded: true,
-                    value: _selectedChain,
-                    items: ChainsDataList.tronChains.map((chainData) {
-                      return DropdownMenuItem<ChainMetadata>(
-                        value: chainData,
-                        child: RichText(
-                          text: TextSpan(
-                            children: [
-                              WidgetSpan(
-                                child: CachedNetworkImage(
-                                  imageUrl: chainData.logo,
-                                  width: 20.0,
-                                  height: 20.0,
-                                  errorWidget: (context, url, error) =>
-                                      const SizedBox.shrink(),
-                                ),
-                              ),
-                              TextSpan(
-                                text: ' ${chainData.name}',
-                                style: TextStyle(
-                                  fontSize: 14.0,
-                                  color: Theme.of(context).brightness ==
-                                          Brightness.dark
-                                      ? Colors.white
-                                      : Colors.black,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                    onChanged: (ChainMetadata? chain) {
-                      setState(() => _selectedChain = chain!);
-                      _updateTronBalance();
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox.square(dimension: 8.0),
+        // Visibility(
+        //   visible: chainData.chainId.contains('tron'),
+        //   child: Padding(
+        //     padding: const EdgeInsets.only(
+        //       left: 12.0,
+        //       right: 12.0,
+        //       top: 10.0,
+        //       bottom: 8.0,
+        //     ),
+        //     child: Row(
+        //       mainAxisAlignment: MainAxisAlignment.center,
+        //       crossAxisAlignment: CrossAxisAlignment.center,
+        //       children: [
+        //         Spacer(),
+        //         SizedBox(
+        //           width: 200.0,
+        //           child: DropdownButton(
+        //             key: Key('tron_chains'),
+        //             isExpanded: true,
+        //             value: _selectedChain,
+        //             items: ChainsDataList.tronChains.map((chainData) {
+        //               return DropdownMenuItem<ChainMetadata>(
+        //                 value: chainData,
+        //                 child: RichText(
+        //                   text: TextSpan(
+        //                     children: [
+        //                       WidgetSpan(
+        //                         child: CachedNetworkImage(
+        //                           imageUrl: chainData.logo,
+        //                           width: 20.0,
+        //                           height: 20.0,
+        //                           errorWidget: (context, url, error) =>
+        //                               const SizedBox.shrink(),
+        //                         ),
+        //                       ),
+        //                       TextSpan(
+        //                         text: ' ${chainData.name}',
+        //                         style: TextStyle(
+        //                           fontSize: 14.0,
+        //                           color: Theme.of(context).brightness ==
+        //                                   Brightness.dark
+        //                               ? Colors.white
+        //                               : Colors.black,
+        //                           fontWeight: FontWeight.bold,
+        //                         ),
+        //                       ),
+        //                     ],
+        //                   ),
+        //                 ),
+        //               );
+        //             }).toList(),
+        //             onChanged: (ChainMetadata? chain) {
+        //               setState(() => _selectedChain = chain!);
+        //             },
+        //           ),
+        //         ),
+        //       ],
+        //     ),
+        //   ),
+        // ),
+        // const SizedBox.square(dimension: 8.0),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12.0),
           child: Column(
             children: [
-              _DataContainer(
-                title: 'CAIP-10',
-                data: '${chainData.chainId}:${chainKeys.first.address}',
-              ),
+              // _DataContainer(
+              //   title: 'CAIP-10',
+              //   data: '${chainData.chainId}:${chainKeys.first.address}',
+              // ),
+              ...chainKeys.first.chains.map((chain) {
+                return Padding(
+                  padding: const EdgeInsets.only(top: 12.0),
+                  child: _DataContainer(
+                    title: 'CAIP-10',
+                    data: '$chain:${chainKeys.first.address}',
+                  ),
+                );
+              }),
               const SizedBox(height: 12.0),
               _DataContainer(
                 title: 'Secret key',

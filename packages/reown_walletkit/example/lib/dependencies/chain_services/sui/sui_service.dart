@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 
 import 'package:get_it/get_it.dart';
 import 'package:reown_walletkit/reown_walletkit.dart';
@@ -271,5 +272,194 @@ class SUIService {
         await handler(args.topic, args.params);
       }
     }
+  }
+
+  /// Returns the Sui RPC endpoint
+  String get _suiRpcEndpoint {
+    if (chainSupported.isTestnet) {
+      return 'https://fullnode.testnet.sui.io:443';
+    }
+    return 'https://fullnode.mainnet.sui.io:443';
+  }
+
+  /// Fetches all coin balances with metadata for an address
+  Future<List<Map<String, dynamic>>> getTokens({
+    required String address,
+  }) async {
+    try {
+      // Get all balances for the address
+      final balances = await _getAllBalances(address);
+      if (balances.isEmpty) {
+        return [];
+      }
+
+      final tokens = <Map<String, dynamic>>[];
+      for (final balance in balances) {
+        final coinType = balance['coinType'] as String;
+        final totalBalance = balance['totalBalance'] as String;
+
+        // Fetch metadata for each coin type
+        final metadata = await _getCoinMetadata(coinType);
+        final decimals = metadata['decimals'] as int? ?? 9;
+        final rawAmount = BigInt.parse(totalBalance);
+        final quantity = rawAmount / BigInt.from(10).pow(decimals);
+
+        // Fetch price for the coin
+        final symbol = metadata['symbol'] ?? _extractCoinSymbol(coinType);
+        final price = await _getCoinPrice(symbol.toString().toLowerCase());
+        final iconUrl = metadata['iconUrl']?.toString() ?? '';
+
+        tokens.add({
+          'name': metadata['name'] ?? _extractCoinName(coinType),
+          'symbol': symbol,
+          'chainId': chainSupported.chainId,
+          'value': (quantity * price).toDouble(),
+          'quantity': {
+            'decimals': decimals,
+            'numeric': '$quantity',
+          },
+          'iconUrl': iconUrl.isEmpty ? chainSupported.logo : iconUrl,
+          'coinType': coinType,
+        });
+      }
+
+      debugPrint('[SUIService] getTokens found ${tokens.length} coins');
+      return tokens;
+    } catch (e) {
+      debugPrint('[SUIService] getTokens error: $e');
+      rethrow;
+    }
+  }
+
+  /// Fetches coin price from CoinGecko
+  Future<double> _getCoinPrice(String symbol) async {
+    if (chainSupported.isTestnet) {
+      return 0.0;
+    }
+
+    // Map of known Sui tokens to their CoinGecko IDs
+    const tokenIdMap = {
+      'sui': 'sui',
+      'usdc': 'usd-coin',
+      'usdt': 'tether',
+      'weth': 'weth',
+      'cetus': 'cetus-protocol',
+      'navx': 'navi-protocol',
+      'sca': 'scallop-2',
+      'buck': 'bucket-protocol',
+      'deep': 'deepbook',
+    };
+
+    final coinGeckoId = tokenIdMap[symbol];
+    if (coinGeckoId == null) {
+      return 0.0;
+    }
+
+    try {
+      final url =
+          'https://api.coingecko.com/api/v3/simple/price?ids=$coinGeckoId&vs_currencies=usd';
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {'accept': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final tokenData = data[coinGeckoId] as Map<String, dynamic>?;
+        final price = tokenData?['usd'] as num?;
+        return price?.toDouble() ?? 0.0;
+      }
+      return 0.0;
+    } catch (e) {
+      debugPrint('[SUIService] _getCoinPrice error for $symbol: $e');
+      return 0.0;
+    }
+  }
+
+  /// Fetches all balances using suix_getAllBalances RPC method
+  Future<List<Map<String, dynamic>>> _getAllBalances(String address) async {
+    try {
+      final response = await http.post(
+        Uri.parse(_suiRpcEndpoint),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'jsonrpc': '2.0',
+          'id': 1,
+          'method': 'suix_getAllBalances',
+          'params': [address],
+        }),
+      );
+
+      if (response.statusCode != 200) {
+        debugPrint('[SUIService] RPC error: ${response.statusCode}');
+        return [];
+      }
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (data['error'] != null) {
+        debugPrint('[SUIService] RPC error: ${data['error']}');
+        return [];
+      }
+
+      final result = data['result'] as List<dynamic>? ?? [];
+      return result.map((b) => b as Map<String, dynamic>).toList();
+    } catch (e) {
+      debugPrint('[SUIService] _getAllBalances error: $e');
+      return [];
+    }
+  }
+
+  /// Fetches coin metadata using suix_getCoinMetadata RPC method
+  Future<Map<String, dynamic>> _getCoinMetadata(String coinType) async {
+    try {
+      final response = await http.post(
+        Uri.parse(_suiRpcEndpoint),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'jsonrpc': '2.0',
+          'id': 1,
+          'method': 'suix_getCoinMetadata',
+          'params': [coinType],
+        }),
+      );
+
+      if (response.statusCode != 200) {
+        return {};
+      }
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (data['error'] != null || data['result'] == null) {
+        return {};
+      }
+
+      final result = data['result'] as Map<String, dynamic>;
+      return {
+        'name': result['name'],
+        'symbol': result['symbol'],
+        'decimals': result['decimals'],
+        'iconUrl': result['iconUrl'],
+        'description': result['description'],
+      };
+    } catch (e) {
+      debugPrint('[SUIService] _getCoinMetadata error: $e');
+      return {};
+    }
+  }
+
+  /// Extracts a readable name from the coin type
+  String _extractCoinName(String coinType) {
+    // coinType format: 0x2::sui::SUI or package::module::name
+    final parts = coinType.split('::');
+    if (parts.length >= 3) {
+      return parts.last;
+    }
+    return coinType;
+  }
+
+  /// Extracts a symbol from the coin type
+  String _extractCoinSymbol(String coinType) {
+    final name = _extractCoinName(coinType);
+    return name.toUpperCase();
   }
 }

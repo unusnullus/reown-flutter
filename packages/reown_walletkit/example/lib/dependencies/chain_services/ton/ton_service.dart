@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:convert/convert.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
+import 'package:http/http.dart' as http;
 import 'package:reown_walletkit/reown_walletkit.dart';
 import 'package:reown_walletkit_wallet/dependencies/chain_services/ton/ton_client.dart';
 
@@ -221,6 +222,149 @@ class TonService {
         session!.peer.metadata.redirect,
         error.message,
       );
+    }
+  }
+
+  /// Returns the TonAPI endpoint for the chain
+  String get _tonApiEndpoint {
+    return chainSupported.isTestnet
+        ? 'https://testnet.tonapi.io'
+        : 'https://tonapi.io';
+  }
+
+  /// Fetches Jetton (TON token) balances with metadata
+  /// Includes native TON balance at the beginning of the list
+  Future<List<Map<String, dynamic>>> getTokens({
+    required String address,
+  }) async {
+    try {
+      final tokens = <Map<String, dynamic>>[];
+
+      // Fetch native TON balance first
+      try {
+        final tonBalance = await getBalance(address: address);
+        if (tonBalance > 0) {
+          final tonPrice = await _getTonPrice();
+          tokens.add({
+            'name': 'Toncoin',
+            'symbol': 'TON',
+            'chainId': chainSupported.chainId,
+            'value': tonBalance * tonPrice,
+            'quantity': {
+              'decimals': 9,
+              'numeric': '$tonBalance',
+            },
+            'iconUrl':
+                'https://assets.coingecko.com/coins/images/17980/small/ton_symbol.png',
+          });
+        }
+      } catch (e) {
+        debugPrint('[TonService] Failed to fetch TON balance: $e');
+      }
+
+      // Fetch Jettons
+      final url = '$_tonApiEndpoint/v2/accounts/$address/jettons';
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {'accept': 'application/json'},
+      );
+
+      if (response.statusCode != 200) {
+        debugPrint('[TonService] TonAPI error: ${response.statusCode}');
+        return tokens;
+      }
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final balances = data['balances'] as List<dynamic>? ?? [];
+
+      for (final item in balances) {
+        final jetton = item as Map<String, dynamic>;
+        final jettonInfo = jetton['jetton'] as Map<String, dynamic>? ?? {};
+        final balance = jetton['balance'] as String? ?? '0';
+
+        final decimals = jettonInfo['decimals'] as int? ?? 9;
+        final rawAmount = BigInt.parse(balance);
+        final quantity = rawAmount / BigInt.from(10).pow(decimals);
+
+        // Get price if available
+        final price = jetton['price'] as Map<String, dynamic>?;
+        final priceUsd = (price?['prices']?['USD'] as num?)?.toDouble() ?? 0.0;
+
+        tokens.add({
+          'name': jettonInfo['name'] ?? 'Unknown Jetton',
+          'symbol': jettonInfo['symbol'] ?? 'JETTON',
+          'chainId': chainSupported.chainId,
+          'value': (quantity * priceUsd).toDouble(),
+          'quantity': {
+            'decimals': decimals,
+            'numeric': '$quantity',
+          },
+          'iconUrl': jettonInfo['image'],
+          'jettonAddress': jettonInfo['address'],
+          'verified': jettonInfo['verification'] == 'whitelist',
+        });
+      }
+
+      debugPrint('[TonService] getTokens found ${tokens.length} tokens');
+      return tokens;
+    } catch (e) {
+      debugPrint('[TonService] getTokens error: $e');
+      rethrow;
+    }
+  }
+
+  /// Fetches TON price in USD from TonAPI
+  Future<double> _getTonPrice() async {
+    if (chainSupported.isTestnet) {
+      return 0.0;
+    }
+
+    try {
+      // Use TonAPI rates endpoint for TON price
+      final url = '$_tonApiEndpoint/v2/rates?tokens=ton&currencies=usd';
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {'accept': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final rates = data['rates'] as Map<String, dynamic>?;
+        final tonRates = rates?['TON'] as Map<String, dynamic>?;
+        final prices = tonRates?['prices'] as Map<String, dynamic>?;
+        final usdPrice = prices?['USD'] as num?;
+        return usdPrice?.toDouble() ?? 0.0;
+      }
+      return 0.0;
+    } catch (e) {
+      debugPrint('[TonService] _getTonPrice error: $e');
+      return 0.0;
+    }
+  }
+
+  /// Fetches native TON balance
+  Future<double> getBalance({required String address}) async {
+    try {
+      final url = '$_tonApiEndpoint/v2/accounts/$address';
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {'accept': 'application/json'},
+      );
+
+      if (response.statusCode != 200) {
+        debugPrint('[TonService] TonAPI error: ${response.statusCode}');
+        return 0.0;
+      }
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final balance = data['balance'] as int? ?? 0;
+
+      // TON has 9 decimals (nanoton)
+      return balance / 1000000000.0;
+    } catch (e) {
+      debugPrint('[TonService] getBalance error: $e');
+      return 0.0;
     }
   }
 }

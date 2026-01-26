@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
+import 'package:http/http.dart' as http;
 import 'package:reown_walletkit/reown_walletkit.dart';
 
 import 'package:reown_walletkit_wallet/dependencies/bottom_sheet/i_bottom_sheet_service.dart';
@@ -20,6 +21,11 @@ class KadenaService {
 
   final ChainMetadata chainSupported;
   late final SigningApi kadenaClient;
+
+  /// Tracks whether the Chainweb API is available
+  /// This prevents repeated failed requests when the API is down
+  static bool _apiAvailable = true;
+  static DateTime? _lastApiCheck;
 
   Map<String, dynamic Function(String, dynamic)> get kadenaRequestHandlers => {
         'kadena_getAccounts_v1': kadenaGetAccountsV1,
@@ -280,5 +286,201 @@ class KadenaService {
         await handler(args.topic, args.params);
       }
     }
+  }
+
+  /// Returns the Chainweb API endpoint
+  String get _chainwebApiEndpoint {
+    return chainSupported.isTestnet
+        ? 'https://api.testnet.chainweb.com'
+        : 'https://api.chainweb.com';
+  }
+
+  String get _networkId {
+    return chainSupported.isTestnet ? 'testnet04' : 'mainnet01';
+  }
+
+  /// Fetches KDA balance across all 20 chains
+  Future<List<Map<String, dynamic>>> getTokens({
+    required String address,
+  }) async {
+    // Skip if API was recently marked as unavailable (check every 5 minutes)
+    if (!_apiAvailable) {
+      final now = DateTime.now();
+      if (_lastApiCheck != null &&
+          now.difference(_lastApiCheck!).inMinutes < 5) {
+        debugPrint('[KadenaService] Skipping - API unavailable');
+        return [];
+      }
+    }
+
+    try {
+      final keys = GetIt.I<IKeyService>().getKeysForChain(
+        chainSupported.chainId,
+      );
+      final accountName = 'k:${keys[0].publicKey}';
+
+      // First, check if the API is reachable by testing chain 0
+      final testResult = await _getChainBalance(accountName, 0);
+      if (testResult.value == -1) {
+        // API is unavailable
+        _apiAvailable = false;
+        _lastApiCheck = DateTime.now();
+        debugPrint('[KadenaService] Chainweb API unavailable');
+        return [];
+      }
+
+      // API is available, mark it and fetch remaining chains
+      _apiAvailable = true;
+
+      // Kadena has 20 parallel chains (0-19)
+      // Fetch balance from remaining chains (1-19) since we already have chain 0
+      double totalBalance = testResult.value > 0 ? testResult.value : 0.0;
+      final chainBalances = <int, double>{};
+      if (testResult.value > 0) {
+        chainBalances[0] = testResult.value;
+      }
+
+      // Query balances from remaining chains in parallel
+      final futures = <Future<MapEntry<int, double>>>[];
+      for (int chainId = 1; chainId < 20; chainId++) {
+        futures.add(_getChainBalance(accountName, chainId));
+      }
+
+      final results = await Future.wait(futures);
+      for (final entry in results) {
+        if (entry.value > 0) {
+          chainBalances[entry.key] = entry.value;
+          totalBalance += entry.value;
+        }
+      }
+
+      debugPrint(
+        '[KadenaService] getTokens total balance: $totalBalance KDA across ${chainBalances.length} chains',
+      );
+
+      if (totalBalance == 0) {
+        return [];
+      }
+
+      // Fetch KDA price
+      final kdaPrice = await _getKdaPrice();
+
+      return [
+        {
+          'name': 'Kadena',
+          'symbol': 'KDA',
+          'chainId': chainSupported.chainId,
+          'value': totalBalance * kdaPrice,
+          'quantity': {
+            'decimals': 12,
+            'numeric': '$totalBalance',
+          },
+          'iconUrl':
+              'https://raw.githubusercontent.com/ApeSwapFinance/apeswap-token-lists/main/assets/KDA.png',
+          'chainBalances': chainBalances,
+        }
+      ];
+    } catch (e) {
+      debugPrint('[KadenaService] getTokens error: $e');
+      return [];
+    }
+  }
+
+  /// Fetches KDA price in USD from CoinGecko API
+  Future<double> _getKdaPrice() async {
+    if (chainSupported.isTestnet) {
+      return 0.0;
+    }
+
+    try {
+      final url =
+          'https://api.coingecko.com/api/v3/simple/price?ids=kadena&vs_currencies=usd';
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {'accept': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final kdaData = data['kadena'] as Map<String, dynamic>?;
+        final price = kdaData?['usd'] as num?;
+        return price?.toDouble() ?? 0.0;
+      }
+      return 0.0;
+    } catch (e) {
+      debugPrint('[KadenaService] _getKdaPrice error: $e');
+      return 0.0;
+    }
+  }
+
+  /// Fetches balance for a specific Kadena chain (0-19)
+  /// Returns -1 if the API is unavailable (DNS/network error)
+  Future<MapEntry<int, double>> _getChainBalance(
+    String accountName,
+    int chainId,
+  ) async {
+    try {
+      final url =
+          '$_chainwebApiEndpoint/chainweb/0.0/$_networkId/chain/$chainId/pact/api/v1/local';
+
+      final pactCode = '(coin.get-balance "$accountName")';
+      final cmd = {
+        'cmd': jsonEncode({
+          'networkId': _networkId,
+          'payload': {
+            'exec': {
+              'data': {},
+              'code': pactCode,
+            },
+          },
+          'signers': <Map<String, dynamic>>[],
+          'meta': {
+            'chainId': '$chainId',
+            'sender': '',
+            'gasLimit': 1000,
+            'gasPrice': 0.0000001,
+            'ttl': 600,
+            'creationTime': DateTime.now().millisecondsSinceEpoch ~/ 1000,
+          },
+          'nonce': DateTime.now().toIso8601String(),
+        }),
+        'hash': '',
+        'sigs': <Map<String, dynamic>>[],
+      };
+
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(cmd),
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final result = jsonDecode(response.body) as Map<String, dynamic>;
+        final resultData = result['result'] as Map<String, dynamic>?;
+
+        if (resultData?['status'] == 'success') {
+          final data = resultData!['data'];
+          if (data is num) {
+            return MapEntry(chainId, data.toDouble());
+          } else if (data is Map && data['decimal'] != null) {
+            return MapEntry(chainId, double.parse(data['decimal'].toString()));
+          }
+        }
+      }
+    } catch (e) {
+      // Check if it's a DNS/network error (SocketException)
+      final errorString = e.toString().toLowerCase();
+      if (errorString.contains('socketexception') ||
+          errorString.contains('failed host lookup') ||
+          errorString.contains('connection refused') ||
+          errorString.contains('network is unreachable')) {
+        // Return -1 to indicate API unavailability
+        return MapEntry(chainId, -1);
+      }
+      // Only log non-network errors (account not found, etc.)
+      // Don't log for each chain to reduce noise
+    }
+    return MapEntry(chainId, 0.0);
   }
 }

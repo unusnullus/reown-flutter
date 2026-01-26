@@ -626,17 +626,17 @@ class EVMService {
 
   Future<List<Map<String, dynamic>>> getBalances({
     required String address,
+    bool byChain = false,
   }) async {
     final queryParams = {
       'projectId': _walletKit.core.projectId,
-      'chainId': chainSupported.chainId,
+      if (byChain) 'chainId': chainSupported.chainId,
       'currency': 'usd',
     };
     final package = await PackageInfo.fromPlatform();
     final uri = Uri.parse(
       'https://rpc.walletconnect.org/v1/account/$address/balance',
     ).replace(queryParameters: queryParams);
-    print('getBalances $uri');
     final response = await http.get(
       uri,
       headers: {

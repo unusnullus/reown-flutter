@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:reown_walletkit_wallet/dependencies/chain_services/cosmos_service.dart';
 import 'package:reown_walletkit_wallet/dependencies/chain_services/evm_service.dart';
 import 'package:reown_walletkit_wallet/dependencies/chain_services/kadena_service.dart';
@@ -24,6 +27,10 @@ class BalancesPage extends StatefulWidget {
 }
 
 class _BalancesPageState extends State<BalancesPage> {
+  static const _cacheKey = 'balances_cache';
+  static const _cacheTimestampKey = 'balances_cache_timestamp';
+  static const _cacheDuration = Duration(minutes: 30);
+
   final _walletKitService = GetIt.I<IWalletKitService>();
   final _keysService = GetIt.I<IKeyService>();
   final List<Map<String, dynamic>> _mainnetBalances = [];
@@ -67,13 +74,31 @@ class _BalancesPageState extends State<BalancesPage> {
     _updateBalance();
   }
 
-  Future<void> _updateBalance({bool showLoading = true}) async {
+  Future<void> _updateBalance({
+    bool showLoading = true,
+    bool forceRefresh = false,
+  }) async {
     if (!mounted) return;
     if (showLoading) {
       setState(() => _isLoading = true);
     }
 
     try {
+      // Try to load from cache if not forcing refresh
+      if (!forceRefresh) {
+        final cached = await _loadFromCache();
+        if (cached != null) {
+          _mainnetBalances.clear();
+          _testnetBalances.clear();
+          _mainnetBalances.addAll(cached['mainnet']!);
+          _testnetBalances.addAll(cached['testnet']!);
+          _isLoading = false;
+          setState(() {});
+          debugPrint('[BalancesPage] Loaded balances from cache');
+          return;
+        }
+      }
+
       _mainnetBalances.clear();
       _testnetBalances.clear();
 
@@ -86,6 +111,10 @@ class _BalancesPageState extends State<BalancesPage> {
       _mainnetBalances.addAll(results[0]);
       _testnetBalances.addAll(results[1]);
 
+      // Save to cache
+      await _saveToCache(_mainnetBalances, _testnetBalances);
+      debugPrint('[BalancesPage] Saved balances to cache');
+
       _isLoading = false;
       setState(() {});
     } catch (e) {
@@ -97,11 +126,64 @@ class _BalancesPageState extends State<BalancesPage> {
     }
   }
 
+  /// Loads balances from cache if valid (less than 30 minutes old)
+  Future<Map<String, List<Map<String, dynamic>>>?> _loadFromCache() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final timestampStr = prefs.getString(_cacheTimestampKey);
+      if (timestampStr == null) return null;
+
+      final timestamp = DateTime.parse(timestampStr);
+      final now = DateTime.now();
+
+      // Check if cache is still valid
+      if (now.difference(timestamp) > _cacheDuration) {
+        debugPrint('[BalancesPage] Cache expired');
+        return null;
+      }
+
+      final cacheStr = prefs.getString(_cacheKey);
+      if (cacheStr == null) return null;
+
+      final cacheData = jsonDecode(cacheStr) as Map<String, dynamic>;
+      final mainnet = (cacheData['mainnet'] as List<dynamic>)
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+      final testnet = (cacheData['testnet'] as List<dynamic>)
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+
+      return {'mainnet': mainnet, 'testnet': testnet};
+    } catch (e) {
+      debugPrint('[BalancesPage] Error loading from cache: $e');
+      return null;
+    }
+  }
+
+  /// Saves balances to cache with current timestamp
+  Future<void> _saveToCache(
+    List<Map<String, dynamic>> mainnet,
+    List<Map<String, dynamic>> testnet,
+  ) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cacheData = {
+        'mainnet': mainnet,
+        'testnet': testnet,
+      };
+      await prefs.setString(_cacheKey, jsonEncode(cacheData));
+      await prefs.setString(
+          _cacheTimestampKey, DateTime.now().toIso8601String());
+    } catch (e) {
+      debugPrint('[BalancesPage] Error saving to cache: $e');
+    }
+  }
+
   Future<List<Map<String, dynamic>>> _fetchAllBalances({
     required bool isTestnet,
   }) async {
     final allBalances = await Future.wait([
-      getEvmBalances(isTestnet),
+      isTestnet ? getEvmTestBalances() : getEvmBalances(),
       getTronBalances(isTestnet),
       getSolanaBalances(isTestnet),
       getCosmosBalances(isTestnet),
@@ -114,28 +196,36 @@ class _BalancesPageState extends State<BalancesPage> {
     return allBalances.expand((a) => a).toList();
   }
 
-  Future<List<Map<String, dynamic>>> getEvmBalances([
-    bool isTestnet = false,
-  ]) async {
+  Future<List<Map<String, dynamic>>> getEvmBalances() async {
     try {
       final evmChains = ChainsDataList.eip155Chains.where(
-        (e) => e.isTestnet == isTestnet,
+        (e) => !e.isTestnet,
       );
-      // final evmChain = evmChains.first;
-      // final evmService = _walletKitService.getChainService<EVMService>(
-      //   chainId: evmChain.chainId,
-      // );
-      // final evmChainKeys = _keysService.getKeysForChain('eip155');
+      final evmChain = evmChains.first;
+      final evmService = _walletKitService.getChainService<EVMService>(
+        chainId: evmChain.chainId,
+      );
+      final evmChainKeys = _keysService.getKeysForChain('eip155');
 
-      // final evmAddress = evmChainKeys.first.address;
-      // return await evmService.getBalances(address: evmAddress);
+      final evmAddress = evmChainKeys.first.address;
+      return await evmService.getBalances(address: evmAddress);
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getEvmTestBalances() async {
+    try {
+      final evmChains = ChainsDataList.eip155Chains.where(
+        (e) => e.isTestnet,
+      );
       final futures = evmChains.map((evmChain) {
         final evmService = _walletKitService.getChainService<EVMService>(
           chainId: evmChain.chainId,
         );
         final evmChainKeys = _keysService.getKeysForChain('eip155');
         final evmAddress = evmChainKeys.first.address;
-        return evmService.getBalances(address: evmAddress);
+        return evmService.getBalances(address: evmAddress, byChain: true);
       });
       final balances = await Future.wait(futures);
       return balances.expand((a) => a).toList();
@@ -343,88 +433,105 @@ class _BalancesPageState extends State<BalancesPage> {
       body: chainKeys.isEmpty
           ? const Center(child: Text('No EVM accounts found'))
           : RefreshIndicator(
-              onRefresh: () => _updateBalance(showLoading: false),
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Address display
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.only(
-                              bottom: 12.0,
-                              left: 12.0,
-                              right: 12.0,
-                            ),
+              onRefresh: () => _updateBalance(
+                showLoading: false,
+                forceRefresh: true,
+              ),
+              child: _isLoading
+                  ? FutureBuilder(
+                      future: Future.delayed(Duration(milliseconds: 100)),
+                      initialData: null,
+                      builder: (context, snapshot) {
+                        if (snapshot.hasData) {
+                          return const Center(
                             child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.center,
+                              mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Text(
-                                  'Wallet address',
-                                  style: StyleConstants.wcpTextPrimaryStyle,
+                                Padding(
+                                  padding: EdgeInsets.all(24.0),
+                                  child: CircularProgressIndicator(),
                                 ),
-                                const SizedBox(height: 4.0),
-                                Text(
-                                  chainKeys.first.address,
-                                  style: StyleConstants.wcpTextPrimaryStyle
-                                      .copyWith(fontSize: 12),
-                                ),
+                                Text('Loading balances...'),
                               ],
                             ),
+                          );
+                        }
+                        return SizedBox.shrink();
+                      })
+                  : SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Container(
+                                  padding: const EdgeInsets.only(
+                                    bottom: 12.0,
+                                    left: 12.0,
+                                    right: 12.0,
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        'Wallet address',
+                                        style:
+                                            StyleConstants.wcpTextPrimaryStyle,
+                                      ),
+                                      const SizedBox(height: 4.0),
+                                      Text(
+                                        chainKeys.first.address,
+                                        style: StyleConstants
+                                            .wcpTextPrimaryStyle
+                                            .copyWith(fontSize: 12),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                      ],
-                    ),
-                    Divider(height: 1.0, color: StyleConstants.neutrals),
-                    const SizedBox(height: 12.0),
-                    // Filter widgets
-                    _BalancesFilterWidget(
-                      symbolsWithIcons: _symbolsWithIcons,
-                      selectedSymbols: _selectedSymbols,
-                      onSelectionChanged: (symbol, selected) {
-                        setState(() {
-                          if (selected) {
-                            _selectedSymbols.add(symbol);
-                          } else {
-                            _selectedSymbols.remove(symbol);
-                          }
-                        });
-                      },
-                      onSelectAll: () {
-                        setState(() => _selectedSymbols.clear());
-                      },
-                    ),
-                    const SizedBox(height: 16.0),
-                    if (_isLoading)
-                      const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(24.0),
-                          child: CircularProgressIndicator(),
-                        ),
-                      )
-                    else ...[
-                      // Mainnet Balances
-                      _BalancesListWidget(
-                        title: 'Mainnet',
-                        balances: _filterBalances(_mainnetBalances),
-                        emptyMessage: 'No mainnet balances found',
+                          Divider(height: 1.0, color: StyleConstants.neutrals),
+                          const SizedBox(height: 12.0),
+                          // Filter widgets
+                          _BalancesFilterWidget(
+                            symbolsWithIcons: _symbolsWithIcons,
+                            selectedSymbols: _selectedSymbols,
+                            onSelectionChanged: (symbol, selected) {
+                              setState(() {
+                                if (selected) {
+                                  _selectedSymbols.add(symbol);
+                                } else {
+                                  _selectedSymbols.remove(symbol);
+                                }
+                              });
+                            },
+                            onSelectAll: () {
+                              setState(() => _selectedSymbols.clear());
+                            },
+                          ),
+                          const SizedBox(height: 16.0),
+                          // Mainnet Balances
+                          _BalancesListWidget(
+                            title: 'Mainnet',
+                            balances: _filterBalances(_mainnetBalances),
+                            emptyMessage: 'No mainnet balances found',
+                          ),
+                          // Testnet Balances
+                          const SizedBox(height: 24.0),
+                          _BalancesListWidget(
+                            title: 'Testnet',
+                            balances: _filterBalances(_testnetBalances),
+                            emptyMessage: 'No testnet balances found',
+                            isTestnet: true,
+                          ),
+                        ],
                       ),
-                      // Testnet Balances
-                      const SizedBox(height: 24.0),
-                      _BalancesListWidget(
-                        title: 'Testnet',
-                        balances: _filterBalances(_testnetBalances),
-                        emptyMessage: 'No testnet balances found',
-                        isTestnet: true,
-                      ),
-                    ],
-                  ],
-                ),
-              ),
+                    ),
             ),
     );
   }

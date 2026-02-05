@@ -30,9 +30,12 @@ PODS:
     - Flutter
   - walletconnect_pay (0.0.1):
     - Flutter
-    - YttriumWrapper (= 0.10.15)
+    - YttriumWrapper (= 0.10.31)
+  - webview_flutter_wkwebview (0.0.1):
+    - Flutter
+    - FlutterMacOS
   - YttriumUtilsWrapper (0.10.30)
-  - YttriumWrapper (0.10.15)
+  - YttriumWrapper (0.10.31)
 
 DEPENDENCIES:
   - connectivity_plus (from `.symlinks/plugins/connectivity_plus/ios`)
@@ -47,6 +50,7 @@ DEPENDENCIES:
   - sqflite_darwin (from `.symlinks/plugins/sqflite_darwin/darwin`)
   - url_launcher_ios (from `.symlinks/plugins/url_launcher_ios/ios`)
   - walletconnect_pay (from `.symlinks/plugins/walletconnect_pay/ios`)
+  - webview_flutter_wkwebview (from `.symlinks/plugins/webview_flutter_wkwebview/darwin`)
 
 SPEC REPOS:
   trunk:
@@ -80,6 +84,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/url_launcher_ios/ios"
   walletconnect_pay:
     :path: ".symlinks/plugins/walletconnect_pay/ios"
+  webview_flutter_wkwebview:
+    :path: ".symlinks/plugins/webview_flutter_wkwebview/darwin"
 
 SPEC CHECKSUMS:
   connectivity_plus: cb623214f4e1f6ef8fe7403d580fdad517d2f7dd
@@ -95,9 +101,10 @@ SPEC CHECKSUMS:
   shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
   sqflite_darwin: 20b2a3a3b70e43edae938624ce550a3cbf66a3d0
   url_launcher_ios: 7a95fa5b60cc718a708b8f2966718e93db0cef1b
-  walletconnect_pay: 95df6f3533532d72e2ce2a64354f4326177c6fc1
+  walletconnect_pay: 95286bfaa3d0926695e350b7408de167cc8a298b
+  webview_flutter_wkwebview: 8ebf4fded22593026f7dbff1fbff31ea98573c8d
   YttriumUtilsWrapper: 2ea5f95a061f642004859f4565b8e86f0a974e5d
-  YttriumWrapper: cbddb60c835ebc4232d9f57064084ab30686a18e
+  YttriumWrapper: c951f1ef208f7fe876348c47f69827fd5e3da9f1
 
 PODFILE CHECKSUM: 6f04bd8bad3200377a7456b3b14a877fb4b2f5b4
 

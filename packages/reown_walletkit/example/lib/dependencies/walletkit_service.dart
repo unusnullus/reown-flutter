@@ -26,8 +26,7 @@ import 'package:reown_walletkit_wallet/utils/eth_utils.dart';
 import 'package:reown_walletkit_wallet/utils/methods_utils.dart';
 import 'package:reown_walletkit_wallet/walletconnect_pay/wcp_modals/wcp_confirming_payment.dart';
 import 'package:reown_walletkit_wallet/walletconnect_pay/wcp_modals/wcp_get_payment_options.dart';
-import 'package:reown_walletkit_wallet/walletconnect_pay/wcp_modals/wcp_information_capture/wcp_collect_data_webview.dart';
-import 'package:reown_walletkit_wallet/walletconnect_pay/wcp_modals/wcp_information_capture/wcp_information_capture_start.dart';
+import 'package:reown_walletkit_wallet/walletconnect_pay/wcp_modals/wcp_information_capture/wcp_collect_data_browser.dart';
 import 'package:reown_walletkit_wallet/walletconnect_pay/wcp_modals/wcp_payment_details.dart';
 import 'package:reown_walletkit_wallet/walletconnect_pay/wcp_modals/wcp_payment_result.dart';
 import 'package:reown_walletkit_wallet/widgets/wc_connection_request/wc_connect_modal.dart';
@@ -770,39 +769,18 @@ class WalletKitService implements IWalletKitService {
 
   // WalletConnectPay related UX
 
-  /// Initiates the data collection flow by showing the start modal and webview.
+  /// Initiates the data collection flow by showing the browser directly.
   Future<dynamic> _startDataCollection(
     PaymentOptionsResponse response,
     String collectDataUrl,
   ) async {
-    final startResult = await _bottomSheetHandler.queueBottomSheet(
-      widget: WCPInformationCaptureStartWidget(paymentInfo: response.info!),
-    );
-    if (startResult != WCBottomSheetResult.next.name) {
-      return startResult;
-    }
-
-    return _showCollectDataWebView(collectDataUrl);
+    return _showCollectDataBrowser(collectDataUrl);
   }
 
-  Future<dynamic> _showCollectDataWebView(String collectDataUrl) async {
-    final context = navigatorKey.currentContext;
-    if (context == null) return WCBottomSheetResult.close.name;
-
-    // To prefill form fields, pass a map with user data:
-    // prefillData: {
-    //   'fullName': 'John Doe',
-    //   'dob': '1990-06-15',  // YYYY-MM-DD format
-    // },
-    final result = await Navigator.of(context).push<dynamic>(
-      MaterialPageRoute(
-        builder: (_) => WCPCollectDataWebView(
-          collectDataUrl: collectDataUrl,
-        ),
-      ),
-    );
-    return result;
+  Future<dynamic> _showCollectDataBrowser(String collectDataUrl) async {
+    return WCPCollectDataBrowser.show(collectDataUrl);
   }
+
 
   /// Processes the payment flow: shows payment details, confirms payment, and displays the result.
   Future<dynamic> _processPayment(PaymentOptionsResponse response) async {
@@ -850,7 +828,7 @@ class WalletKitService implements IWalletKitService {
     } else if (result == WCBottomSheetResult.back.name) {
       final collectDataUrl = response.collectData?.url;
       if (collectDataUrl != null && collectDataUrl.isNotEmpty) {
-        final action = await _showCollectDataWebView(collectDataUrl);
+        final action = await _showCollectDataBrowser(collectDataUrl);
         if (action != WCBottomSheetResult.next.name) {
           throw action;
         }

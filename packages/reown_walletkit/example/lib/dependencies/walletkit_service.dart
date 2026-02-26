@@ -26,8 +26,8 @@ import 'package:reown_walletkit_wallet/utils/eth_utils.dart';
 import 'package:reown_walletkit_wallet/utils/methods_utils.dart';
 import 'package:reown_walletkit_wallet/walletconnect_pay/wcp_modals/wcp_confirming_payment.dart';
 import 'package:reown_walletkit_wallet/walletconnect_pay/wcp_modals/wcp_get_payment_options.dart';
-import 'package:reown_walletkit_wallet/walletconnect_pay/wcp_modals/wcp_information_capture/wcp_collect_data_browser.dart';
 import 'package:reown_walletkit_wallet/walletconnect_pay/wcp_modals/wcp_payment_details.dart';
+import 'package:reown_walletkit_wallet/walletconnect_pay/wcp_shared_widgets.dart';
 import 'package:reown_walletkit_wallet/walletconnect_pay/wcp_modals/wcp_payment_result.dart';
 import 'package:reown_walletkit_wallet/widgets/wc_connection_request/wc_connect_modal.dart';
 import 'package:reown_walletkit_wallet/main.dart' show navigatorKey;
@@ -269,7 +269,6 @@ class WalletKitService implements IWalletKitService {
       }
 
       _currentPaymentOptions = optionsResponse;
-      final collectDataUrl = _currentPaymentOptions!.collectData?.url;
 
       if (_currentPaymentOptions!.options.isEmpty) {
         _currentPaymentOptions = null;
@@ -281,19 +280,6 @@ class WalletKitService implements IWalletKitService {
         optionId: _currentPaymentOptions!.options.first.id,
         signatures: [],
       );
-
-      if (collectDataUrl != null && collectDataUrl.isNotEmpty) {
-        final action = await _startDataCollection(
-          _currentPaymentOptions!,
-          collectDataUrl,
-        );
-        if (action != WCBottomSheetResult.next.name) {
-          if (action == WCBottomSheetResult.close.name) {
-            return;
-          }
-          throw action;
-        }
-      }
 
       await _processPayment(_currentPaymentOptions!);
     } catch (e) {
@@ -545,7 +531,7 @@ class WalletKitService implements IWalletKitService {
   void _onSessionConnect(SessionConnect? args) {
     if (args != null) {
       final session = jsonEncode(args.session.toJson());
-      log('[SampleWallet] _onSessionConnect $session');
+      debugPrint('[SampleWallet] _onSessionConnect $session');
       MethodsUtils.handleRedirect(
         args.session.topic,
         args.session.peer.metadata.redirect,
@@ -594,9 +580,8 @@ class WalletKitService implements IWalletKitService {
       if (result is AuthApprovalResult) {
         final selectedChains = result.selectedChainIds;
         // Filter supported chains to only include selected ones
-        final filteredChains = supportedChains
-            .where((c) => selectedChains.contains(c))
-            .toList();
+        final filteredChains =
+            supportedChains.where((c) => selectedChains.contains(c)).toList();
         final formattedMessages = prepareAuthenticationMessages(
           [authenticationRequest],
           {
@@ -769,26 +754,74 @@ class WalletKitService implements IWalletKitService {
 
   // WalletConnectPay related UX
 
-  /// Initiates the data collection flow by showing the browser directly.
-  Future<dynamic> _startDataCollection(
-    PaymentOptionsResponse response,
-    String collectDataUrl,
-  ) async {
-    return _showCollectDataBrowser(collectDataUrl);
-  }
-
-  Future<dynamic> _showCollectDataBrowser(String collectDataUrl) async {
-    return WCPCollectDataBrowser.show(collectDataUrl);
-  }
-
-
   /// Processes the payment flow: shows payment details, confirms payment, and displays the result.
   Future<dynamic> _processPayment(PaymentOptionsResponse response) async {
-    final paymentConfirmRequest = await _showPaymentDetails(response);
+    final hasCollectData = response.options.any(
+      (o) => o.collectData?.url != null && o.collectData!.url!.isNotEmpty,
+    );
+    final infoButtonNotifier =
+        hasCollectData ? ValueNotifier<bool>(true) : null;
+    final showInfoPage = ValueNotifier<bool>(false);
+    final result = await _bottomSheetHandler.queueBottomSheet(
+      widget: WCPPaymentDetailsWidget(
+        paymentOptionsResponse: response,
+        paymentRequest: _pendingPaymentRequest!,
+        infoButtonNotifier: infoButtonNotifier,
+        showInfoPageNotifier: showInfoPage,
+      ),
+      leadingWidget: ValueListenableBuilder<bool>(
+        valueListenable: showInfoPage,
+        builder: (_, isShowingInfo, __) {
+          return AnimatedSwitcher(
+            duration: const Duration(milliseconds: 250),
+            child: isShowingInfo
+                ? WCPSheetIconButton(
+                    key: const ValueKey('back_button'),
+                    icon: Icons.arrow_back,
+                    showBorder: false,
+                    onPressed: () => showInfoPage.value = false,
+                  )
+                : infoButtonNotifier != null
+                    ? ValueListenableBuilder<bool>(
+                        key: const ValueKey('info_button'),
+                        valueListenable: infoButtonNotifier,
+                        builder: (_, visible, __) => visible
+                            ? WCPInfoButton(
+                                onTap: () => showInfoPage.value = true,
+                              )
+                            : const SizedBox(width: 38),
+                      )
+                    : const SizedBox(
+                        key: ValueKey('spacer'),
+                        width: 38,
+                      ),
+          );
+        },
+      ),
+    );
+
+    // Payment expired/failed during collectData — skip confirming, show result.
+    if (result is PaymentStatus) {
+      await _bottomSheetHandler.queueBottomSheet(
+        widget: WCPPaymentResult(
+          status: result,
+          info: _currentPaymentOptions!.info!,
+        ),
+      );
+      _pendingPaymentRequest = null;
+      _currentPaymentOptions = null;
+      return;
+    }
+
+    if (result is! ConfirmPaymentRequest) {
+      _pendingPaymentRequest = null;
+      _currentPaymentOptions = null;
+      throw result;
+    }
 
     // Step 2: Confirming Payment
     final paymentStatusResult = await _bottomSheetHandler.queueBottomSheet(
-      widget: WCPConfirmingPayment(paymentRequest: paymentConfirmRequest),
+      widget: WCPConfirmingPayment(paymentRequest: result),
     );
     if (paymentStatusResult is! PaymentStatus) {
       _pendingPaymentRequest = null;
@@ -797,7 +830,7 @@ class WalletKitService implements IWalletKitService {
     }
 
     // Step 3: Payment Result
-    final result = await _bottomSheetHandler.queueBottomSheet(
+    final resultStatus = await _bottomSheetHandler.queueBottomSheet(
       widget: WCPPaymentResult(
         status: paymentStatusResult,
         info: _currentPaymentOptions!.info!,
@@ -806,37 +839,8 @@ class WalletKitService implements IWalletKitService {
     _pendingPaymentRequest = null;
     _currentPaymentOptions = null;
 
-    if (result != WCBottomSheetResult.next.name) {
-      throw result;
-    }
-  }
-
-  /// Shows the payment details modal and re-opens webview on back if needed.
-  Future<ConfirmPaymentRequest> _showPaymentDetails(
-    PaymentOptionsResponse response,
-  ) async {
-    final result = await _bottomSheetHandler.queueBottomSheet(
-      widget: WCPPaymentDetailsWidget(
-        paymentOptionsResponse: response,
-        paymentRequest: _pendingPaymentRequest!,
-      ),
-      showBackButton: true,
-    );
-
-    if (result is ConfirmPaymentRequest) {
-      return result;
-    } else if (result == WCBottomSheetResult.back.name) {
-      final collectDataUrl = response.collectData?.url;
-      if (collectDataUrl != null && collectDataUrl.isNotEmpty) {
-        final action = await _showCollectDataBrowser(collectDataUrl);
-        if (action != WCBottomSheetResult.next.name) {
-          throw action;
-        }
-        return _showPaymentDetails(response);
-      }
-      throw result;
-    } else {
-      throw result;
+    if (resultStatus != WCBottomSheetResult.next.name) {
+      throw resultStatus;
     }
   }
 }

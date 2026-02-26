@@ -21,7 +21,8 @@ class WCModalTitle extends StatelessWidget {
         style: TextStyle(
           color: colors.textPrimary,
           fontSize: 20.0,
-          fontWeight: FontWeight.w500,
+          fontWeight: FontWeight.w400,
+          fontFamily: 'KH Teka',
         ),
         textAlign: TextAlign.center,
       ),
@@ -45,6 +46,7 @@ class WCPrimaryButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       width: double.infinity,
+      height: 48.0,
       child: InkWell(
         onTap: enabled ? onPressed : null,
         borderRadius: BorderRadius.circular(AppRadius.md),
@@ -59,14 +61,15 @@ class WCPrimaryButton extends StatelessWidget {
             ),
             padding: const EdgeInsets.symmetric(
               horizontal: AppSpacing.s4,
-              vertical: AppSpacing.s4,
             ),
+            alignment: Alignment.center,
             child: Text(
               text,
               style: TextStyle(
-                color: colors.onAccent,
+                color: colors.textInvert,
                 fontSize: 16.0,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w400,
+                fontFamily: 'KH Teka',
               ),
               textAlign: TextAlign.center,
             ),
@@ -103,9 +106,7 @@ class WCPStepsIndicator extends StatelessWidget {
           height: _barHeight,
           margin: EdgeInsets.only(right: index < totalSteps - 1 ? 8 : 0),
           decoration: BoxDecoration(
-            color: isActive || isCurrent
-                ? colors.accent
-                : colors.neutrals,
+            color: isActive || isCurrent ? colors.accent : colors.neutrals,
             borderRadius: BorderRadius.circular(3),
           ),
         );
@@ -163,9 +164,8 @@ class _WCPTextFieldState extends State<WCPTextField> {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final isFocused = widget.focusNode.hasFocus;
-    final borderColor = isFocused
-        ? colors.accent.withValues(alpha: 0.4)
-        : colors.inputBorder;
+    final borderColor =
+        isFocused ? colors.accent.withValues(alpha: 0.4) : colors.inputBorder;
 
     return Container(
       height: 64.0,
@@ -219,7 +219,8 @@ class WCPPaymentDetails extends StatelessWidget {
         Expanded(
           child: RichText(
             textAlign: TextAlign.center,
-            maxLines: 2,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             text: TextSpan(
               style: TextStyle(
                 color: colors.textPrimary,
@@ -232,14 +233,6 @@ class WCPPaymentDetails extends StatelessWidget {
                 TextSpan(text: formatPayAmount(paymentInfo.amount)),
                 const TextSpan(text: ' to '),
                 TextSpan(text: paymentInfo.merchant.name),
-                const TextSpan(text: ' '),
-                WidgetSpan(
-                  child: SvgPicture.asset(
-                    'lib/walletconnect_pay/assets/verified.svg',
-                    width: 20.0,
-                    height: 20.0,
-                  ),
-                ),
               ],
             ),
           ),
@@ -298,6 +291,75 @@ class _DefaultLogo extends StatelessWidget {
         color: context.colors.onBackgroundInvert,
         fontSize: 32,
         fontWeight: FontWeight.bold,
+      ),
+    );
+  }
+}
+
+class WCPSheetIconButton extends StatelessWidget {
+  const WCPSheetIconButton({
+    super.key,
+    required this.icon,
+    required this.onPressed,
+    this.showBorder = true,
+  });
+
+  final IconData icon;
+  final VoidCallback onPressed;
+  final bool showBorder;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return GestureDetector(
+      onTap: onPressed,
+      child: Container(
+        width: 38.0,
+        height: 38.0,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          border: showBorder
+              ? Border.all(color: colors.foregroundTertiary, width: 1)
+              : null,
+          borderRadius: BorderRadius.circular(AppSpacing.s3),
+        ),
+        child: Icon(
+          icon,
+          color: colors.textPrimary,
+          size: 20.0,
+        ),
+      ),
+    );
+  }
+}
+
+class WCPInfoButton extends StatelessWidget {
+  const WCPInfoButton({super.key, this.onTap});
+
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 38.0,
+        height: 38.0,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          border: Border.all(color: colors.foregroundTertiary, width: 1),
+          borderRadius: BorderRadius.circular(AppSpacing.s3),
+        ),
+        child: SvgPicture.asset(
+          'assets/QuestionMark.svg',
+          width: 20.0,
+          height: 20.0,
+          colorFilter: ColorFilter.mode(
+            colors.textPrimary,
+            BlendMode.srcIn,
+          ),
+        ),
       ),
     );
   }

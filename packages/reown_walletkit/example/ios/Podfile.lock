@@ -30,12 +30,12 @@ PODS:
     - Flutter
   - walletconnect_pay (0.0.1):
     - Flutter
-    - YttriumWrapper (= 0.10.37)
+    - YttriumWrapper (= 0.10.40)
   - webview_flutter_wkwebview (0.0.1):
     - Flutter
     - FlutterMacOS
   - YttriumUtilsWrapper (0.10.37)
-  - YttriumWrapper (0.10.37)
+  - YttriumWrapper (0.10.40)
 
 DEPENDENCIES:
   - connectivity_plus (from `.symlinks/plugins/connectivity_plus/ios`)
@@ -101,10 +101,10 @@ SPEC CHECKSUMS:
   shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
   sqflite_darwin: 20b2a3a3b70e43edae938624ce550a3cbf66a3d0
   url_launcher_ios: 7a95fa5b60cc718a708b8f2966718e93db0cef1b
-  walletconnect_pay: 8ea83ad692cc808414e82f6a6067769c4ab8f112
+  walletconnect_pay: d48b470e419e864e882e2a68d7f50e788d845b40
   webview_flutter_wkwebview: 8ebf4fded22593026f7dbff1fbff31ea98573c8d
   YttriumUtilsWrapper: 481d00fc2a203610525b5106ba23b8b2c63c96b8
-  YttriumWrapper: 2ae3722e8f07fde214725edd499679d03e7e86c9
+  YttriumWrapper: e99db26ea3ca6b4580933320e11e046f9607525a
 
 PODFILE CHECKSUM: f15d300013bf3f49206576bb82c1d46cc60fd0fe
 

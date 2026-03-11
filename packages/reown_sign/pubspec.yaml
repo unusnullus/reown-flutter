@@ -20,6 +20,7 @@ dependencies:
       url: https://github.com/unusnullus/reown-flutter
       path: packages/reown_core
       ref: master
+  wallet: ^0.0.18
   web3dart: ^3.0.2
 
 dev_dependencies:

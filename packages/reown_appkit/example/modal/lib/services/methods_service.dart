@@ -7,6 +7,8 @@ import 'package:reown_appkit/reown_appkit.dart';
 import 'package:convert/convert.dart';
 
 import 'package:reown_appkit_example/services/contracts/test_data.dart';
+import 'package:wallet/wallet.dart';
+import 'package:web3dart/web3dart.dart';
 
 enum SupportedMethods {
   personalSign,

@@ -8,7 +8,6 @@ import 'package:reown_walletkit_wallet/dependencies/bottom_sheet/i_bottom_sheet_
 import 'package:reown_walletkit_wallet/dependencies/chain_services/cosmos_service.dart';
 import 'package:reown_walletkit_wallet/dependencies/chain_services/evm_service.dart';
 import 'package:reown_walletkit_wallet/dependencies/chain_services/kadena_service.dart';
-import 'package:reown_walletkit_wallet/dependencies/chain_services/polkadot_service.dart';
 import 'package:reown_walletkit_wallet/dependencies/chain_services/solana_service.dart';
 import 'package:reown_walletkit_wallet/dependencies/i_walletkit_service.dart';
 import 'package:reown_walletkit_wallet/dependencies/key_service/i_key_service.dart';
@@ -87,14 +86,6 @@ void main() {
     for (final chainData in ChainsDataList.kadenaChains) {
       GetIt.I.registerSingleton<KadenaService>(
         KadenaService(chainSupported: chainData),
-        instanceName: chainData.chainId,
-      );
-    }
-
-    // Support Polkadot Chains
-    for (final chainData in ChainsDataList.polkadotChains) {
-      GetIt.I.registerSingleton<PolkadotService>(
-        PolkadotService(chainSupported: chainData),
         instanceName: chainData.chainId,
       );
     }

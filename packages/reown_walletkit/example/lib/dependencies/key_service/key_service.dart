@@ -31,6 +31,7 @@ import 'package:bitcoin_base/bitcoin_base.dart' as bitcoin;
 import 'package:ed25519_hd_key/ed25519_hd_key.dart' as ed25519_hd_key;
 import 'package:blockchain_utils/blockchain_utils.dart' as b_utils;
 import 'package:on_chain/on_chain.dart' as on_chain;
+import 'package:web3dart/web3dart.dart';
 
 class KeyService extends IKeyService {
   List<ChainKey> _keys = [];
@@ -204,8 +205,6 @@ class KeyService extends IKeyService {
 
     final eip155ChainKey = _evmChainKey(mnemonic);
     final solanaChainKey = await _solanaChainKey(mnemonic);
-    final polkadotChainKey = await _polkadotChainKey(mnemonic);
-    final polkadotTestChainKey = await _polkadotTestChainKey(mnemonic);
     final kadenaChainKey = _kadenaChainKey(mnemonic);
     final tronChainKey = _tronChainKey(mnemonic);
     final cosmosChainKey = _cosmosChainKey(mnemonic);
@@ -219,8 +218,6 @@ class KeyService extends IKeyService {
     _keys = List<ChainKey>.from([
       if (eip155ChainKey != null) eip155ChainKey,
       if (solanaChainKey != null) solanaChainKey,
-      if (polkadotChainKey != null) polkadotChainKey,
-      if (polkadotTestChainKey != null) polkadotTestChainKey,
       if (kadenaChainKey != null) kadenaChainKey,
       if (tronChainKey != null) tronChainKey,
       if (cosmosChainKey != null) cosmosChainKey,
@@ -262,7 +259,7 @@ class KeyService extends IKeyService {
   ChainKey? _chainKeyFromPrivate(CryptoKeyPair keyPair) {
     try {
       final private = EthPrivateKey.fromHex(keyPair.privateKey);
-      final address = private.address.hex;
+      final address = private.address.with0x;
       final evmChainKey = ChainKey(
         chains: ChainsDataList.eip155Chains.map((e) => e.chainId).toList(),
         privateKey: keyPair.privateKey,
@@ -300,63 +297,6 @@ class KeyService extends IKeyService {
     } catch (e, s) {
       debugPrint('[$runtimeType] _solanaChainKey error: $e');
       debugPrint('[$runtimeType] _solanaChainKey error: $s');
-      return null;
-    }
-  }
-
-  Future<ChainKey?> _polkadotChainKey(String mnemonic) async {
-    try {
-      final dotkeyPair = await keyring.Keyring().fromMnemonic(
-        mnemonic,
-        keyPairType: keyring.KeyPairType.sr25519,
-      );
-      // adjust the default ss58Format for Polkadot https://github.com/paritytech/ss58-registry/blob/main/ss58-registry.json
-      dotkeyPair.ss58Format = 0;
-
-      final publicKey = sig_utils.bytesToHex(
-        dotkeyPair.publicKey.bytes,
-        include0x: true,
-      );
-
-      return ChainKey(
-        chains: ChainsDataList.polkadotChains
-            .where((c) => !c.isTestnet)
-            .map((e) => e.chainId)
-            .toList(),
-        privateKey: mnemonic,
-        publicKey: publicKey,
-        address: dotkeyPair.address,
-        namespace: 'polkadot',
-      );
-    } catch (e, s) {
-      debugPrint('[$runtimeType] _polkadotChainKey error: $e');
-      debugPrint('[$runtimeType] _polkadotChainKey error: $s');
-      return null;
-    }
-  }
-
-  Future<ChainKey?> _polkadotTestChainKey(String mnemonic) async {
-    try {
-      final dotkeyPair = await keyring.Keyring().fromMnemonic(mnemonic);
-
-      final publicKey = sig_utils.bytesToHex(
-        dotkeyPair.publicKey.bytes,
-        include0x: true,
-      );
-
-      return ChainKey(
-        chains: ChainsDataList.polkadotChains
-            .where((c) => c.isTestnet)
-            .map((e) => e.chainId)
-            .toList(),
-        privateKey: mnemonic,
-        publicKey: publicKey,
-        address: dotkeyPair.address,
-        namespace: 'polkadot_test',
-      );
-    } catch (e, s) {
-      debugPrint('[$runtimeType] _polkadotTestChainKey error: $e');
-      debugPrint('[$runtimeType] _polkadotTestChainKey error: $s');
       return null;
     }
   }

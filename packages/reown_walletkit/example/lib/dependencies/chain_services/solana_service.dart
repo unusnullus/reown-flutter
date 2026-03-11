@@ -74,7 +74,7 @@ class SolanaService {
       }
       //
     } catch (e) {
-      debugPrint('[SampleWallet] polkadotSignMessage error $e');
+      debugPrint('[SampleWallet] solanaSignMessage error $e');
       final error = Errors.getSdkError(Errors.MALFORMED_REQUEST_PARAMS);
       response = response.copyWith(
         error: JsonRpcError(

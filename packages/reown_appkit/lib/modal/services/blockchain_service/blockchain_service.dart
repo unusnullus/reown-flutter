@@ -9,6 +9,8 @@ import 'package:reown_appkit/modal/constants/string_constants.dart';
 import 'package:reown_appkit/modal/services/blockchain_service/models/blockchain_identity.dart';
 import 'package:reown_appkit/modal/services/blockchain_service/i_blockchain_service.dart';
 import 'package:reown_core/pairing/utils/json_rpc_utils.dart';
+import 'package:wallet/wallet.dart';
+import 'package:web3dart/web3dart.dart';
 
 // TODO move to Core SDK
 class BlockChainService implements IBlockChainService {

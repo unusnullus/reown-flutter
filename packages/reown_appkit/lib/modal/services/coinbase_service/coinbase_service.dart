@@ -16,6 +16,7 @@ import 'package:coinbase_wallet_sdk/request.dart';
 import 'package:reown_appkit/modal/services/coinbase_service/utils/coinbase_utils.dart';
 import 'package:reown_appkit/modal/services/explorer_service/i_explorer_service.dart';
 import 'package:reown_appkit/reown_appkit.dart';
+import 'package:wallet/wallet.dart';
 
 class CoinbaseService implements ICoinbaseService {
   String _iconImage = '';

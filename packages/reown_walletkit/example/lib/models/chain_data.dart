@@ -273,35 +273,6 @@ class ChainsDataList {
     ),
   ];
 
-  static final List<ChainMetadata> polkadotChains = [
-    const ChainMetadata(
-      type: ChainType.polkadot,
-      chainId: 'polkadot:91b171bb158e2d3848fa23a9f1c25182',
-      name: 'Polkadot Mainnet',
-      currency: 'DOT',
-      logo:
-          'https://pbs.twimg.com/profile_images/1944665239502323712/0FMaAZ31_400x400.jpg',
-      color: Color.fromARGB(255, 174, 57, 220),
-      rpc: [
-        'wss://rpc.polkadot.io',
-        // 'wss://rpc.matrix.canary.enjin.io'
-      ],
-    ),
-    const ChainMetadata(
-      type: ChainType.polkadot,
-      chainId: 'polkadot:e143f23803ac50e8f6f8e62695d1ce9e',
-      name: 'Polkadot Testnet (Westend)',
-      currency: 'DOT',
-      logo:
-          'https://pbs.twimg.com/profile_images/1944665239502323712/0FMaAZ31_400x400.jpg',
-      color: Color.fromARGB(255, 174, 57, 220),
-      isTestnet: true,
-      rpc: [
-        'wss://westend-asset-hub-rpc.polkadot.io',
-      ],
-    ),
-  ];
-
   static final List<ChainMetadata> tronChains = [
     const ChainMetadata(
       type: ChainType.tron,
@@ -431,7 +402,6 @@ class ChainsDataList {
     ...bitcoinChains,
     ...cosmosChains,
     ...kadenaChains,
-    ...polkadotChains,
     ...tronChains,
     ...tonChains,
     ...stacksChains,

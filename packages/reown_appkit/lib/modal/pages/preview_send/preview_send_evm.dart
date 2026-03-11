@@ -24,6 +24,8 @@ import 'package:reown_appkit/reown_appkit.dart' hide TransactionExtension;
 import 'package:reown_appkit/modal/constants/style_constants.dart';
 import 'package:reown_appkit/modal/widgets/modal_provider.dart';
 import 'package:reown_appkit/modal/widgets/navigation/navbar.dart';
+import 'package:wallet/wallet.dart';
+import 'package:web3dart/web3dart.dart';
 
 class PreviewSendEvm extends StatefulWidget {
   const PreviewSendEvm({

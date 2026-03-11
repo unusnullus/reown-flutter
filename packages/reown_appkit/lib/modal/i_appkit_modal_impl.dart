@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:reown_appkit/modal/services/blockchain_service/models/blockchain_identity.dart';
 import 'package:reown_appkit/reown_appkit.dart';
+import 'package:web3dart/web3dart.dart';
 
 enum ReownAppKitModalStatus {
   idle,

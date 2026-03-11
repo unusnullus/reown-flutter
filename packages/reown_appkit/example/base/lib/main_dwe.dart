@@ -6,6 +6,8 @@ import 'package:reown_appkit/reown_appkit.dart';
 
 // ignore: depend_on_referenced_packages
 import 'package:http/http.dart' as http;
+import 'package:wallet/wallet.dart';
+import 'package:web3dart/web3dart.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();

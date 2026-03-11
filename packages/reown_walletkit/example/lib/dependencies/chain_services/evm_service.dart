@@ -16,6 +16,9 @@ import 'package:reown_walletkit_wallet/models/chain_metadata.dart';
 import 'package:reown_walletkit_wallet/utils/eth_utils.dart';
 import 'package:reown_walletkit_wallet/utils/methods_utils.dart';
 import 'package:reown_walletkit_wallet/widgets/wc_connection_widget/wc_connection_model.dart';
+import 'package:wallet/wallet.dart';
+import 'package:web3dart/json_rpc.dart';
+import 'package:web3dart/web3dart.dart';
 
 enum SupportedEVMMethods {
   ethSign,
@@ -733,7 +736,7 @@ class EVMService {
       final credentials =
           privateKey != null ? EthPrivateKey.fromHex(privateKey) : _credentials;
 
-      final expectedAddress = credentials.address.hex;
+      final expectedAddress = credentials.address.with0x;
 
       // Prepare the data to verify
       final dataToVerify = hashToVerify.startsWith('0x')
@@ -761,7 +764,7 @@ class EVMService {
       final credentials =
           privateKey != null ? EthPrivateKey.fromHex(privateKey) : _credentials;
 
-      final expectedAddress = credentials.address.hex;
+      final expectedAddress = credentials.address.with0x;
 
       // Prepare the data to verify
       final dataToVerify = message.startsWith('0x')

@@ -6,7 +6,6 @@ enum ChainType {
   solana,
   cosmos,
   kadena,
-  polkadot,
   bitcoin,
   tron,
   ton,

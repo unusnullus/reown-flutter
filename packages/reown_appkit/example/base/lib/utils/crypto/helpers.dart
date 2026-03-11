@@ -16,6 +16,8 @@ import 'package:reown_appkit_dapp/utils/crypto/ton.dart';
 import 'package:reown_appkit_dapp/utils/crypto/tron.dart';
 import 'package:reown_appkit_dapp/utils/smart_contracts.dart';
 import 'package:reown_appkit_dapp/widgets/method_dialog.dart';
+import 'package:wallet/wallet.dart' hide Tron;
+import 'package:web3dart/web3dart.dart';
 
 List<String> getChainMethods(String namespace) {
   switch (namespace) {

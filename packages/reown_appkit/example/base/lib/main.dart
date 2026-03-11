@@ -20,6 +20,8 @@ import 'package:reown_appkit_dapp/utils/deep_link_handler.dart';
 import 'package:reown_appkit_dapp/utils/string_constants.dart';
 import 'package:reown_appkit_dapp/widgets/event_widget.dart';
 import 'package:reown_appkit_dapp/widgets/log_overlay.dart';
+import 'package:wallet/wallet.dart';
+import 'package:web3dart/web3dart.dart';
 
 Future<void> main() async {
   await runZonedGuarded<Future<void>>(

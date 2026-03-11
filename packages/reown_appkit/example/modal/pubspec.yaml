@@ -19,6 +19,8 @@ dependencies:
     path: ../..
   shared_preferences: ^2.3.4
   toastification: ^2.3.0
+  wallet: ^0.0.18
+  web3dart: ^3.0.2
 
 # dependency_overrides:
 #   coinbase_wallet_sdk:

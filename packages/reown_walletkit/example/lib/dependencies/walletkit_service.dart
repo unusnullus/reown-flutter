@@ -8,7 +8,6 @@ import 'package:reown_walletkit_wallet/dependencies/bottom_sheet/i_bottom_sheet_
 import 'package:reown_walletkit_wallet/dependencies/chain_services/cosmos_service.dart';
 import 'package:reown_walletkit_wallet/dependencies/chain_services/evm_service.dart';
 import 'package:reown_walletkit_wallet/dependencies/chain_services/kadena_service.dart';
-import 'package:reown_walletkit_wallet/dependencies/chain_services/polkadot_service.dart';
 import 'package:reown_walletkit_wallet/dependencies/chain_services/solana_service.dart';
 import 'package:reown_walletkit_wallet/dependencies/chain_services/stacks/stacks_service.dart';
 import 'package:reown_walletkit_wallet/dependencies/chain_services/sui/sui_service.dart';
@@ -114,14 +113,6 @@ class WalletKitService extends IWalletKitService {
     for (final chainData in ChainsDataList.kadenaChains) {
       GetIt.I.registerSingleton<KadenaService>(
         KadenaService(chainSupported: chainData),
-        instanceName: chainData.chainId,
-      );
-    }
-
-    // Support Polkadot Chains
-    for (final chainData in ChainsDataList.polkadotChains) {
-      GetIt.I.registerSingleton<PolkadotService>(
-        PolkadotService(chainSupported: chainData),
         instanceName: chainData.chainId,
       );
     }
@@ -584,11 +575,6 @@ class WalletKitService extends IWalletKitService {
           final service = getChainService<SolanaService>(chainId: caip2chain);
           final encodedMessage = base58.encode(utf8.encode(message));
           final signature = await service.signMessage(encodedMessage);
-          final type = getSignatureType(namespace);
-          return (signature, type, null);
-        case 'polkadot':
-          final service = getChainService<PolkadotService>(chainId: caip2chain);
-          final signature = await service.signMessage(message);
           final type = getSignatureType(namespace);
           return (signature, type, null);
         case 'tron':

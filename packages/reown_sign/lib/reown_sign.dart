@@ -24,7 +24,3 @@ export 'i_sign_client.dart';
 export 'sign_client.dart';
 export 'i_sign_engine.dart';
 export 'sign_engine.dart';
-
-export 'package:web3dart/web3dart.dart';
-export 'package:wallet/wallet.dart';
-export 'package:web3dart/json_rpc.dart';

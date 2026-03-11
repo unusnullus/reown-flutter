@@ -32,8 +32,8 @@ dependencies:
   on_chain: ^7.1.0
   package_info_plus: ^8.1.2
   pointycastle: ^4.0.0
-  polkadart: ^0.4.7
-  polkadart_keyring: ^0.4.4
+  polkadart: ^1.1.0
+  polkadart_keyring: ^0.7.2
   qr_bar_code_scanner_dialog:
     path: packages/qr-bar-code-scanner-dialog
   reown_walletkit:
@@ -42,7 +42,11 @@ dependencies:
     path: ../../reown_yttrium_utils/
   sentry_flutter: ^9.7.0
   shared_preferences: ^2.3.4
-  solana: ^0.31.2+1
+  solana:
+    git:
+      url: https://github.com/unusnullus/espresso-cash-public-dart
+      ref: master
+      path: packages/solana
   solana_web3: ^0.1.3
   toastification: ^2.3.0
 

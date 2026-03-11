@@ -12,7 +12,10 @@ environment:
 dependencies:
   bs58: ^1.0.2
   cupertino_icons: ^1.0.8
-  eth_sig_util: ^0.0.9
+  eth_sig_util:
+    git:
+      url: https://github.com/unusnullus/eth-sig-util
+      ref: master
   flutter:
     sdk: flutter
   intl: ^0.20.1

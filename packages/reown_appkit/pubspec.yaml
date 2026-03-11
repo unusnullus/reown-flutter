@@ -6,8 +6,7 @@ repository: https://github.com/reown-com/reown_flutter/tree/master/packages/reow
 documentation: https://docs.reown.com/appkit/flutter/core/installation
 
 environment:
-  sdk: ">=3.8.0 <4.0.0"
-  flutter: ">=1.10.0"
+  sdk: ">=3.8.0"
 
 dependencies:
   appcheck: ^1.5.2
@@ -30,8 +29,16 @@ dependencies:
   pinenacl: ^0.6.0
   plugin_platform_interface: ^2.1.8
   qr_flutter_wc: ^0.0.3
-  reown_core: ^1.3.7
-  reown_sign: ^1.3.8
+  reown_core:
+    git:
+      url: https://github.com/unusnullus/reown-flutter
+      path: packages/reown_core
+      ref: master
+  reown_sign:
+    git:
+      url: https://github.com/unusnullus/reown-flutter
+      path: packages/reown_sign
+      ref: master
   shimmer: ^3.0.0
   synchronized: ^3.3.0+3
   web_socket_channel: ^3.0.1
@@ -51,7 +58,11 @@ dev_dependencies:
   logger: ^2.5.0
   mockito: ^5.4.4
   package_info_plus: ^8.1.2
-  reown_walletkit: ^1.3.8
+  reown_walletkit:
+    git:
+      url: https://github.com/unusnullus/reown-flutter
+      path: packages/reown_walletkit
+      ref: master
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

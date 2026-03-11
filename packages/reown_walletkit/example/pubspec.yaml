@@ -18,7 +18,10 @@ dependencies:
   convert: ^3.1.2
   crypto: ^3.0.6
   cupertino_icons: ^1.0.8
-  eth_sig_util: ^0.0.9
+  eth_sig_util:
+    git:
+      url: https://github.com/unusnullus/eth-sig-util
+      ref: master
   flutter:
     sdk: flutter
   flutter_svg: ^2.0.16
@@ -28,7 +31,7 @@ dependencies:
   kadena_dart_sdk: ^2.3.2
   on_chain: ^7.1.0
   package_info_plus: ^8.1.2
-  pointycastle: ^3.9.1
+  pointycastle: ^4.0.0
   polkadart: ^0.4.7
   polkadart_keyring: ^0.4.4
   qr_bar_code_scanner_dialog:

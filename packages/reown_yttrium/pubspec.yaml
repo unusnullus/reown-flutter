@@ -6,11 +6,13 @@ repository: https://github.com/reown-com/reown_flutter/tree/master/packages/reow
 documentation: https://docs.reown.com/walletkit/flutter/early-access/chain-abstraction
 
 environment:
-  sdk: ">=3.8.0 <4.0.0"
-  flutter: ">=1.10.0"
+  sdk: ">=3.8.0"
 
 dependencies:
-  eth_sig_util: ^0.0.9
+  eth_sig_util:
+    git:
+      url: https://github.com/unusnullus/eth-sig-util
+      ref: master
   flutter:
     sdk: flutter
   freezed_annotation: ^3.1.0

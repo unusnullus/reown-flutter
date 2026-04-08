@@ -16,12 +16,12 @@ dependencies:
     git:
       url: https://github.com/unusnullus/reown-flutter
       path: packages/reown_core
-      ref: bugfix/fix-ios-crash-related-to-secure-storage
+      ref: master
   reown_sign:
     git:
       url: https://github.com/unusnullus/reown-flutter
       path: packages/reown_sign
-      ref: bugfix/fix-ios-crash-related-to-secure-storage
+      ref: master
 
 dev_dependencies:
   build_runner: ^2.4.13
@@ -37,7 +37,7 @@ dev_dependencies:
     git:
       url: https://github.com/unusnullus/reown-flutter
       path: packages/reown_appkit
-      ref: bugfix/fix-ios-crash-related-to-secure-storage
+      ref: master
 
 platforms:
   android:

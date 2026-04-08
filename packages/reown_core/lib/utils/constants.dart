@@ -6,6 +6,10 @@ class ReownConstants {
   static const CORE_STORAGE_PREFIX =
       '$CORE_PROTOCOL@$CORE_VERSION:$CORE_CONTEXT:';
 
+  static const SECURE_STORAGE_IOS_ACCOUNT_NAME = 'reown_core_secure_storage';
+  static const SECURE_STORAGE_ANDROID_PREFS_NAME = 'reown_core_secure_prefs';
+  static const SECURE_STORAGE_ANDROID_PREFS_KEY_PREFIX = 'reown_core_';
+
   static const DEFAULT_RELAY_URL = 'wss://relay.walletconnect.org';
   static const DEFAULT_PUSH_URL = 'https://echo.walletconnect.org';
   static const VERIFY_SERVER = 'https://verify.walletconnect.org';

@@ -39,11 +39,16 @@ class SecureStore implements IStore<Map<String, dynamic>> {
     }
 
     try {
-      // Try secure storage first
+      // Try secure storage first.
       _secureStorage = const FlutterSecureStorage(
-        aOptions: AndroidOptions(encryptedSharedPreferences: true),
+        aOptions: AndroidOptions(
+          encryptedSharedPreferences: true,
+          sharedPreferencesName: ReownConstants.SECURE_STORAGE_ANDROID_PREFS_NAME,
+          preferencesKeyPrefix: ReownConstants.SECURE_STORAGE_ANDROID_PREFS_KEY_PREFIX,
+        ),
         iOptions: IOSOptions(
-          accessibility: KeychainAccessibility.first_unlock_this_device,
+          accountName: ReownConstants.SECURE_STORAGE_IOS_ACCOUNT_NAME,
+          accessibility: KeychainAccessibility.first_unlock,
         ),
       );
 

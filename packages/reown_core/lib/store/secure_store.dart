@@ -40,16 +40,6 @@ class SecureStore implements IStore<Map<String, dynamic>> {
 
     try {
       // Try secure storage first.
-      //
-      // We scope the storage to a dedicated partition (iOS: `kSecAttrService`,
-      // Android: a dedicated EncryptedSharedPreferences file) so that
-      // `readAll()` only enumerates entries reown itself has written. Without
-      // this isolation, on iOS `FlutterSecureStorage.readAll()` runs a
-      // `SecItemCopyMatching` query under the default service and returns
-      // every keychain item stored by the host app or any other library using
-      // the default options. If any of those values are stored as `NSData`,
-      // the Swift bridging layer force-casts to `NSString` and the process is
-      // terminated with an uncatchable fatalError before Dart can handle it.
       _secureStorage = const FlutterSecureStorage(
         aOptions: AndroidOptions(
           encryptedSharedPreferences: true,

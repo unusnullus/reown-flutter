@@ -45,19 +45,27 @@ class SecureStore implements IStore<Map<String, dynamic>> {
 
     try {
       // Try secure storage first.
-      _secureStorage =
-          _injectedStorage ??
-          const FlutterSecureStorage(
-            aOptions: AndroidOptions(
-              encryptedSharedPreferences: true,
-              sharedPreferencesName: ReownConstants.SECURE_STORAGE_ANDROID_PREFS_NAME,
-              preferencesKeyPrefix: ReownConstants.SECURE_STORAGE_ANDROID_PREFS_KEY_PREFIX,
-            ),
-            iOptions: IOSOptions(
-              accountName: ReownConstants.SECURE_STORAGE_IOS_ACCOUNT_NAME,
-              accessibility: KeychainAccessibility.first_unlock,
-            ),
-          );
+      final FlutterSecureStorage? injected = _injectedStorage;
+      _secureStorage = injected != null
+          ? FlutterSecureStorage(
+              aOptions: injected.aOptions,
+              lOptions: injected.lOptions,
+              wOptions: injected.wOptions,
+              webOptions: injected.webOptions,
+              iOptions: injected.iOptions.copyWith(accountName: ReownConstants.SECURE_STORAGE_IOS_ACCOUNT_NAME),
+              mOptions: injected.mOptions.copyWith(accountName: ReownConstants.SECURE_STORAGE_IOS_ACCOUNT_NAME),
+            )
+          : const FlutterSecureStorage(
+              aOptions: AndroidOptions(
+                encryptedSharedPreferences: true,
+                sharedPreferencesName: ReownConstants.SECURE_STORAGE_ANDROID_PREFS_NAME,
+                preferencesKeyPrefix: ReownConstants.SECURE_STORAGE_ANDROID_PREFS_KEY_PREFIX,
+              ),
+              iOptions: IOSOptions(
+                accountName: ReownConstants.SECURE_STORAGE_IOS_ACCOUNT_NAME,
+                accessibility: KeychainAccessibility.first_unlock,
+              ),
+            );
 
       await restore();
     } catch (e) {

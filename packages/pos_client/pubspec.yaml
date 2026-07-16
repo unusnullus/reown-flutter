@@ -20,12 +20,12 @@ dependencies:
     git:
       url: https://github.com/unusnullus/reown-flutter
       path: packages/reown_core
-      ref: master
+      ref: WalletKit-1.1.6
   reown_sign:
     git:
       url: https://github.com/unusnullus/reown-flutter
       path: packages/reown_sign
-      ref: master
+      ref: WalletKit-1.1.6
 
 dev_dependencies:
   build_runner: ^2.4.13

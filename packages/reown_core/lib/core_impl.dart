@@ -39,6 +39,7 @@ import 'package:reown_core/verify/verify.dart';
 import 'package:reown_core/utils/log_level.dart';
 import 'package:reown_core/utils/utils.dart';
 import 'package:reown_core/models/basic_models.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:reown_core/store/secure_store.dart';
 import 'package:reown_core/verify/verify_store.dart';
 
@@ -128,21 +129,20 @@ class ReownCore implements IReownCore {
     LogLevel logLevel = LogLevel.nothing,
     IHttpClient httpClient = const HttpWrapper(),
     IWebSocketHandler? webSocketHandler,
+    FlutterSecureStorage? flutterSecureStorage,
   }) {
     _logLevel = logLevel;
     _logger = Logger(
       level: _logLevel.toLevel(),
       printer: _LogPrinter(
         stackTraceBeginIndex: 0,
-        methodCount: _logLevel == LogLevel.debug || _logLevel == LogLevel.error
-            ? 8
-            : 0,
+        methodCount: _logLevel == LogLevel.debug || _logLevel == LogLevel.error ? 8 : 0,
         errorMethodCount: 8,
       ),
     );
     heartbeat = HeartBeat();
     storage = SharedPrefsStores(memoryStore: memoryStore);
-    secureStorage = SecureStore(fallbackStorage: storage);
+    secureStorage = SecureStore(fallbackStorage: storage, secureStorage: flutterSecureStorage);
     crypto = Crypto(
       core: this,
       keyChain: GenericStore<String>(
@@ -288,9 +288,7 @@ class _LogPrinter extends LogPrinter {
 
   static final _webStackTraceRegex = RegExp(r'^((packages|dart-sdk)/\S+/)');
 
-  static final _browserStackTraceRegex = RegExp(
-    r'^(?:package:)?(dart:\S+|\S+)',
-  );
+  static final _browserStackTraceRegex = RegExp(r'^(?:package:)?(dart:\S+|\S+)');
 
   final int stackTraceBeginIndex;
 
@@ -312,11 +310,7 @@ class _LogPrinter extends LogPrinter {
   String _middleBorder = '';
   String _bottomBorder = '';
 
-  _LogPrinter({
-    this.stackTraceBeginIndex = 0,
-    this.methodCount = 0,
-    this.errorMethodCount = 8,
-  }) {
+  _LogPrinter({this.stackTraceBeginIndex = 0, this.methodCount = 0, this.errorMethodCount = 8}) {
     var doubleDividerLine = StringBuffer();
     var singleDividerLine = StringBuffer();
     for (var i = 0; i < lineLength - 1; i++) {
@@ -343,27 +337,15 @@ class _LogPrinter extends LogPrinter {
     String? stackTraceStr;
     if (event.error != null) {
       if ((errorMethodCount == null || errorMethodCount! > 0)) {
-        stackTraceStr = formatStackTrace(
-          event.stackTrace ?? StackTrace.current,
-          errorMethodCount,
-        );
+        stackTraceStr = formatStackTrace(event.stackTrace ?? StackTrace.current, errorMethodCount);
       }
     } else if (methodCount == null || methodCount! > 0) {
-      stackTraceStr = formatStackTrace(
-        event.stackTrace ?? StackTrace.current,
-        methodCount,
-      );
+      stackTraceStr = formatStackTrace(event.stackTrace ?? StackTrace.current, methodCount);
     }
 
     var errorStr = event.error?.toString();
 
-    return _formatAndPrint(
-      event.level,
-      messageStr,
-      DateTime.now().toString(),
-      errorStr,
-      stackTraceStr,
-    );
+    return _formatAndPrint(event.level, messageStr, DateTime.now().toString(), errorStr, stackTraceStr);
   }
 
   String? formatStackTrace(StackTrace? stackTrace, int? methodCount) {
@@ -380,9 +362,7 @@ class _LogPrinter extends LogPrinter {
         .toList();
     List<String> formatted = [];
 
-    int stackTraceLength = (methodCount != null
-        ? min(lines.length, methodCount)
-        : lines.length);
+    int stackTraceLength = (methodCount != null ? min(lines.length, methodCount) : lines.length);
     for (int count = 0; count < stackTraceLength; count++) {
       var line = lines[count];
       if (count < stackTraceBeginIndex) {
@@ -425,8 +405,7 @@ class _LogPrinter extends LogPrinter {
       return false;
     }
     final segment = match.group(1)!;
-    if (segment.startsWith('packages/logger') ||
-        segment.startsWith('dart-sdk/lib')) {
+    if (segment.startsWith('packages/logger') || segment.startsWith('dart-sdk/lib')) {
       return true;
     }
     return _isInExcludePaths(segment);
@@ -469,19 +448,11 @@ class _LogPrinter extends LogPrinter {
     return '';
   }
 
-  List<String> _formatAndPrint(
-    Level level,
-    String message,
-    String time,
-    String? error,
-    String? stacktrace,
-  ) {
+  List<String> _formatAndPrint(Level level, String message, String time, String? error, String? stacktrace) {
     final hasBorders = methodCount != null && methodCount! > 0;
 
     List<String> buffer = [];
-    var verticalLineAtLevel = (_includeBox[level]!) && hasBorders
-        ? ('$verticalLine ')
-        : '';
+    var verticalLineAtLevel = (_includeBox[level]!) && hasBorders ? ('$verticalLine ') : '';
 
     if (_includeBox[level]! && hasBorders) buffer.add(_topBorder);
 

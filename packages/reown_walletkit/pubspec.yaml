@@ -12,6 +12,11 @@ dependencies:
   event: ^3.1.0
   flutter:
     sdk: flutter
+  flutter_secure_storage:
+    git:
+      url: https://github.com/unusnullus/cake_flutter_secure_storage
+      path: flutter_secure_storage
+      ref: cake-9.0.0
   reown_core:
     git:
       url: https://github.com/unusnullus/reown-flutter

@@ -1,4 +1,5 @@
 import 'package:flutter/widgets.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:reown_core/relay_client/websocket/http_client.dart';
 import 'package:reown_core/relay_client/websocket/i_http_client.dart';
 import 'package:reown_core/store/generic_store.dart';
@@ -17,6 +18,7 @@ class ReownWalletKit with WidgetsBindingObserver implements IReownWalletKit {
     bool memoryStore = false,
     LogLevel logLevel = LogLevel.nothing,
     IHttpClient httpClient = const HttpWrapper(),
+    FlutterSecureStorage? flutterSecureStorage,
   }) async {
     final walletKit = ReownWalletKit(
       core: ReownCore(
@@ -26,6 +28,7 @@ class ReownWalletKit with WidgetsBindingObserver implements IReownWalletKit {
         memoryStore: memoryStore,
         logLevel: logLevel,
         httpClient: httpClient,
+        flutterSecureStorage: flutterSecureStorage,
       ),
       metadata: metadata,
     );
@@ -110,11 +113,7 @@ class ReownWalletKit with WidgetsBindingObserver implements IReownWalletKit {
     }
 
     await core.start();
-    core.events.setQueryParams({
-      'projectId': core.projectId,
-      'st': 'events_sdk',
-      'sv': ReownCoreUtils.coreSdkVersion(packageVersion),
-    });
+    core.events.setQueryParams({'projectId': core.projectId, 'st': 'events_sdk', 'sv': ReownCoreUtils.coreSdkVersion(packageVersion)});
     await core.events.sendStoredEvents();
     await reOwnSign.init();
 
@@ -146,16 +145,13 @@ class ReownWalletKit with WidgetsBindingObserver implements IReownWalletKit {
   Event<SessionExpire> get onSessionExpire => reOwnSign.onSessionExpire;
 
   @override
-  Event<SessionProposalEvent> get onSessionProposal =>
-      reOwnSign.onSessionProposal;
+  Event<SessionProposalEvent> get onSessionProposal => reOwnSign.onSessionProposal;
 
   @override
-  Event<SessionProposalErrorEvent> get onSessionProposalError =>
-      reOwnSign.onSessionProposalError;
+  Event<SessionProposalErrorEvent> get onSessionProposalError => reOwnSign.onSessionProposalError;
 
   @override
-  Event<SessionProposalEvent> get onProposalExpire =>
-      reOwnSign.onProposalExpire;
+  Event<SessionProposalEvent> get onProposalExpire => reOwnSign.onProposalExpire;
 
   @override
   Event<SessionRequestEvent> get onSessionRequest => reOwnSign.onSessionRequest;
@@ -170,8 +166,7 @@ class ReownWalletKit with WidgetsBindingObserver implements IReownWalletKit {
   ISessions get sessions => reOwnSign.sessions;
 
   @override
-  IGenericStore<SessionRequest> get pendingRequests =>
-      reOwnSign.pendingRequests;
+  IGenericStore<SessionRequest> get pendingRequests => reOwnSign.pendingRequests;
 
   @override
   Future<ApproveResponse> approveSession({
@@ -195,10 +190,7 @@ class ReownWalletKit with WidgetsBindingObserver implements IReownWalletKit {
   }
 
   @override
-  Future<void> rejectSession({
-    required int id,
-    required ReownSignError reason,
-  }) async {
+  Future<void> rejectSession({required int id, required ReownSignError reason}) async {
     try {
       return await reOwnSign.rejectSession(id: id, reason: reason);
     } catch (e) {
@@ -207,15 +199,9 @@ class ReownWalletKit with WidgetsBindingObserver implements IReownWalletKit {
   }
 
   @override
-  Future<void> updateSession({
-    required String topic,
-    required Map<String, Namespace> namespaces,
-  }) async {
+  Future<void> updateSession({required String topic, required Map<String, Namespace> namespaces}) async {
     try {
-      return await reOwnSign.updateSession(
-        topic: topic,
-        namespaces: namespaces,
-      );
+      return await reOwnSign.updateSession(topic: topic, namespaces: namespaces);
     } catch (e) {
       // final error = e as WCError;
       rethrow;
@@ -232,27 +218,16 @@ class ReownWalletKit with WidgetsBindingObserver implements IReownWalletKit {
   }
 
   @override
-  void registerRequestHandler({
-    required String chainId,
-    required String method,
-    dynamic Function(String, dynamic)? handler,
-  }) {
+  void registerRequestHandler({required String chainId, required String method, dynamic Function(String, dynamic)? handler}) {
     try {
-      return reOwnSign.registerRequestHandler(
-        chainId: chainId,
-        method: method,
-        handler: handler,
-      );
+      return reOwnSign.registerRequestHandler(chainId: chainId, method: method, handler: handler);
     } catch (e) {
       rethrow;
     }
   }
 
   @override
-  Future<void> respondSessionRequest({
-    required String topic,
-    required JsonRpcResponse response,
-  }) {
+  Future<void> respondSessionRequest({required String topic, required JsonRpcResponse response}) {
     try {
       return reOwnSign.respondSessionRequest(topic: topic, response: response);
     } catch (e) {
@@ -270,42 +245,25 @@ class ReownWalletKit with WidgetsBindingObserver implements IReownWalletKit {
   }
 
   @override
-  void registerAccount({
-    required String chainId,
-    required String accountAddress,
-  }) {
+  void registerAccount({required String chainId, required String accountAddress}) {
     try {
-      return reOwnSign.registerAccount(
-        chainId: chainId,
-        accountAddress: accountAddress,
-      );
+      return reOwnSign.registerAccount(chainId: chainId, accountAddress: accountAddress);
     } catch (e) {
       rethrow;
     }
   }
 
   @override
-  Future<void> emitSessionEvent({
-    required String topic,
-    required String chainId,
-    required SessionEventParams event,
-  }) async {
+  Future<void> emitSessionEvent({required String topic, required String chainId, required SessionEventParams event}) async {
     try {
-      return await reOwnSign.emitSessionEvent(
-        topic: topic,
-        chainId: chainId,
-        event: event,
-      );
+      return await reOwnSign.emitSessionEvent(topic: topic, chainId: chainId, event: event);
     } catch (e) {
       rethrow;
     }
   }
 
   @override
-  Future<void> disconnectSession({
-    required String topic,
-    required ReownSignError reason,
-  }) async {
+  Future<void> disconnectSession({required String topic, required ReownSignError reason}) async {
     try {
       return await reOwnSign.disconnectSession(topic: topic, reason: reason);
     } catch (e) {
@@ -314,9 +272,7 @@ class ReownWalletKit with WidgetsBindingObserver implements IReownWalletKit {
   }
 
   @override
-  SessionData? find({
-    required Map<String, RequiredNamespace> requiredNamespaces,
-  }) {
+  SessionData? find({required Map<String, RequiredNamespace> requiredNamespaces}) {
     try {
       return reOwnSign.find(requiredNamespaces: requiredNamespaces);
     } catch (e) {
@@ -334,9 +290,7 @@ class ReownWalletKit with WidgetsBindingObserver implements IReownWalletKit {
   }
 
   @override
-  Map<String, SessionData> getSessionsForPairing({
-    required String pairingTopic,
-  }) {
+  Map<String, SessionData> getSessionsForPairing({required String pairingTopic}) {
     try {
       return reOwnSign.getSessionsForPairing(pairingTopic: pairingTopic);
     } catch (e) {
@@ -372,10 +326,7 @@ class ReownWalletKit with WidgetsBindingObserver implements IReownWalletKit {
   }
 
   @override
-  Future<bool> redirectToDapp({
-    required String topic,
-    required Redirect? redirect,
-  }) {
+  Future<bool> redirectToDapp({required String topic, required Redirect? redirect}) {
     return reOwnSign.redirectToDapp(topic: topic, redirect: redirect);
   }
 
@@ -383,18 +334,13 @@ class ReownWalletKit with WidgetsBindingObserver implements IReownWalletKit {
   IPairingStore get pairings => core.pairing.getStore();
 
   @override
-  IGenericStore<PendingSessionAuthRequest> get sessionAuthRequests =>
-      reOwnSign.sessionAuthRequests;
+  IGenericStore<PendingSessionAuthRequest> get sessionAuthRequests => reOwnSign.sessionAuthRequests;
 
   @override
-  Event<SessionAuthRequest> get onSessionAuthRequest =>
-      reOwnSign.onSessionAuthRequest;
+  Event<SessionAuthRequest> get onSessionAuthRequest => reOwnSign.onSessionAuthRequest;
 
   @override
-  Future<ApproveResponse> approveSessionAuthenticate({
-    required int id,
-    List<Cacao>? auths,
-  }) {
+  Future<ApproveResponse> approveSessionAuthenticate({required int id, List<Cacao>? auths}) {
     try {
       return reOwnSign.approveSessionAuthenticate(id: id, auths: auths);
     } catch (e) {
@@ -403,10 +349,7 @@ class ReownWalletKit with WidgetsBindingObserver implements IReownWalletKit {
   }
 
   @override
-  Future<void> rejectSessionAuthenticate({
-    required int id,
-    required ReownSignError reason,
-  }) {
+  Future<void> rejectSessionAuthenticate({required int id, required ReownSignError reason}) {
     try {
       return reOwnSign.rejectSessionAuthenticate(id: id, reason: reason);
     } catch (e) {
@@ -424,10 +367,7 @@ class ReownWalletKit with WidgetsBindingObserver implements IReownWalletKit {
   }
 
   @override
-  String formatAuthMessage({
-    required String iss,
-    required CacaoRequestPayload cacaoPayload,
-  }) {
+  String formatAuthMessage({required String iss, required CacaoRequestPayload cacaoPayload}) {
     try {
       return reOwnSign.formatAuthMessage(iss: iss, cacaoPayload: cacaoPayload);
     } catch (e) {
@@ -436,10 +376,7 @@ class ReownWalletKit with WidgetsBindingObserver implements IReownWalletKit {
   }
 
   @override
-  Future<bool> validateSignedCacao({
-    required Cacao cacao,
-    required String projectId,
-  }) {
+  Future<bool> validateSignedCacao({required Cacao cacao, required String projectId}) {
     try {
       return reOwnSign.validateSignedCacao(cacao: cacao, projectId: projectId);
     } catch (e) {

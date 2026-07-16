@@ -7,8 +7,11 @@ import 'package:reown_core/utils/constants.dart';
 import 'package:reown_core/utils/errors.dart';
 
 class SecureStore implements IStore<Map<String, dynamic>> {
+  final IStore<Map<String, dynamic>> _fallbackStorage;
+  final FlutterSecureStorage? _injectedStorage;
+
   late final FlutterSecureStorage _secureStorage;
-  late final IStore<Map<String, dynamic>> _fallbackStorage;
+
   bool _initialized = false;
   bool _useFallbackStorage = false;
 
@@ -29,8 +32,10 @@ class SecureStore implements IStore<Map<String, dynamic>> {
   SecureStore({
     Map<String, Map<String, dynamic>>? defaultValue,
     required IStore<Map<String, dynamic>> fallbackStorage,
+    FlutterSecureStorage? secureStorage,
   }) : _map = defaultValue ?? {},
-       _fallbackStorage = fallbackStorage;
+       _fallbackStorage = fallbackStorage,
+       _injectedStorage = secureStorage;
 
   @override
   Future<void> init() async {
@@ -40,17 +45,19 @@ class SecureStore implements IStore<Map<String, dynamic>> {
 
     try {
       // Try secure storage first.
-      _secureStorage = const FlutterSecureStorage(
-        aOptions: AndroidOptions(
-          encryptedSharedPreferences: true,
-          sharedPreferencesName: ReownConstants.SECURE_STORAGE_ANDROID_PREFS_NAME,
-          preferencesKeyPrefix: ReownConstants.SECURE_STORAGE_ANDROID_PREFS_KEY_PREFIX,
-        ),
-        iOptions: IOSOptions(
-          accountName: ReownConstants.SECURE_STORAGE_IOS_ACCOUNT_NAME,
-          accessibility: KeychainAccessibility.first_unlock,
-        ),
-      );
+      _secureStorage =
+          _injectedStorage ??
+          const FlutterSecureStorage(
+            aOptions: AndroidOptions(
+              encryptedSharedPreferences: true,
+              sharedPreferencesName: ReownConstants.SECURE_STORAGE_ANDROID_PREFS_NAME,
+              preferencesKeyPrefix: ReownConstants.SECURE_STORAGE_ANDROID_PREFS_KEY_PREFIX,
+            ),
+            iOptions: IOSOptions(
+              accountName: ReownConstants.SECURE_STORAGE_IOS_ACCOUNT_NAME,
+              accessibility: KeychainAccessibility.first_unlock,
+            ),
+          );
 
       await restore();
     } catch (e) {
@@ -106,10 +113,7 @@ class SecureStore implements IStore<Map<String, dynamic>> {
         final stringValue = jsonEncode(value);
         await _secureStorage.write(key: keyWithPrefix, value: stringValue);
       } catch (e) {
-        throw Errors.getInternalError(
-          Errors.MISSING_OR_INVALID,
-          context: e.toString(),
-        );
+        throw Errors.getInternalError(Errors.MISSING_OR_INVALID, context: e.toString());
       }
     }
   }
@@ -130,10 +134,7 @@ class SecureStore implements IStore<Map<String, dynamic>> {
           final stringValue = jsonEncode(value);
           await _secureStorage.write(key: keyWithPrefix, value: stringValue);
         } catch (e) {
-          throw Errors.getInternalError(
-            Errors.MISSING_OR_INVALID,
-            context: e.toString(),
-          );
+          throw Errors.getInternalError(Errors.MISSING_OR_INVALID, context: e.toString());
         }
       }
     }
@@ -190,9 +191,7 @@ class SecureStore implements IStore<Map<String, dynamic>> {
             _map[key] = decodedValue;
           } catch (e) {
             // Skip corrupted data
-            debugPrint(
-              'Warning: Failed to decode secure storage value for key $key: $e',
-            );
+            debugPrint('Warning: Failed to decode secure storage value for key $key: $e');
           }
         }
       }
